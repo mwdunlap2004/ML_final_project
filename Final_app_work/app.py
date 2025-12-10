@@ -50,7 +50,7 @@ available_categorical = [
 ]
 
 # Defaults
-default_numeric = ['average_humidity', 'avg_solar_irradiance', 'avg_soil_water_content', 'average_air_pressure']
+default_numeric = ['average_humidity', 'avg_solar_irradiance', 'avg_soil_water_content', 'average_air_pressure','average_stem_radius']
 default_categorical = ['freeze_flag', 'species', 'site', 'plot']
 
 
