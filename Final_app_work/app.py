@@ -266,7 +266,7 @@ def server(input, output, session):
         
         model = Pipeline(steps=[
             ('preprocessor', preprocessor),
-            ('classifier', LogisticRegression(multi_class='multinomial', solver='lbfgs', max_iter=1000))
+            ('classifier', LogisticRegression(solver='lbfgs', max_iter=1000))
         ])
 
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
