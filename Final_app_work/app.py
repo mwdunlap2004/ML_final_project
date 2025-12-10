@@ -17,7 +17,7 @@ from datetime import date
 
 
 
-df = pd.read_csv('Final_app_work/categorized_data.csv')
+df = pd.read_csv('categorized_data.csv')
 df['Date'] = pd.to_datetime(df['Date']) 
 
 min_date = df['Date'].min().date()
