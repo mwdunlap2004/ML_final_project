@@ -411,7 +411,7 @@ def server(input, output, session):
             sns.barplot(x='Class', y='Score', hue='Metric', data=df_perf, ax=axes[1], palette='RdBu', edgecolor='black')
             axes[1].set_title("Model Performance by Category", fontsize=14, weight='bold')
             axes[1].set_ylim(0, 1.0)
-            axes[1].axhline(0.50, color='red', linestyle='--', label='Random Chance (0.50)')
+            axes[1].axhline(0.33, color='red', linestyle='--', label='Random Chance (0.33)')
             axes[1].legend(loc='lower center')
         
         plt.tight_layout()
