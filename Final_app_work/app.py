@@ -25,6 +25,36 @@ max_date = df['Date'].max().date()
 
 df['Date'] = df['Date'].dt.date
 
+# --- Feature Sets ---
+available_numeric = [
+    'average_humidity', 
+    'avg_solar_irradiance', 
+    'avg_soil_water_content', 
+    'average_air_pressure',
+    'average_air_temperature',
+    'average_stem_radius',
+    'change_stem_radius',
+    'average_basal_area',
+    'change_basal_area'
+]
+
+available_categorical = [
+    'freeze_flag', 
+    'species', 
+    'site', 
+    'plot',
+    'air_pressure_cat',
+    'humidity_cat',
+    'solar_cat',
+    'soil_moist_cat'
+]
+
+# Defaults
+default_numeric = ['average_humidity', 'avg_solar_irradiance', 'avg_soil_water_content', 'average_air_pressure']
+default_categorical = ['freeze_flag', 'species', 'site', 'plot']
+
+
+# --- UI Definition ---
 app_ui = ui.page_navbar(
     # Tab 1: Readme
     ui.nav_panel(
@@ -39,14 +69,8 @@ app_ui = ui.page_navbar(
             Our primary objective is to determine which environmental factors—such as soil moisture or solar intensity—are the strongest predictors of robust plant growth.
 
             ### 2. Methodologies
-            * **Logistic Regression**: A predictive model used to classify growth into **"No Growth"**, **"A Little Growth"**, and **"A Lot of Growth"**.
-            * **Principal Component Analysis (PCA)**: A dimensionality reduction technique used to explore the structure of the data. It helps us see if variables are correlated and if distinct clusters (like specific Species or Sites) naturally separate in the data.
-
-            ### 3. Variable Definitions
-            * **Average Air Temperature**: Measured in Celsius.
-            * **Avg Solar Irradiance**: The power per unit area received from the Sun.
-            * **Avg Soil Water Content**: Volumetric water content ratio.
-            * **Site & Plot**: Categorical identifiers for where the data was collected.
+            * **Logistic Regression**: A predictive model used to classify growth. You can now customize the inputs and explore drivers for specific growth categories (e.g., "A Little Growth" vs "A Lot of Growth").
+            * **Principal Component Analysis (PCA)**: A dimensionality reduction technique used to explore the structure of the data and identify natural clusters.
             """
         )
     ),
@@ -81,34 +105,72 @@ app_ui = ui.page_navbar(
     # Tab 3: Logistic Regression Model
     ui.nav_panel(
         "Logistic Regression Model",
-        ui.layout_columns(
-            ui.card(
-                ui.card_header("Model Performance Metrics"),
-                ui.h5("Accuracy Score"),
-                ui.output_text_verbatim("accuracy_score"),
-                ui.h5("Detailed Classification Report"),
-                ui.output_text_verbatim("class_report"),
-            ),
-            ui.card(
-                ui.card_header("Understanding the Model"),
-                ui.h5("What is Logistic Regression?"),
-                ui.p("Logistic Regression draws an 'S-shaped' curve to predict the probability of an event happening."),
-                ui.h5("Understanding the Outputs"),
-                ui.tags.ul(
-                    ui.tags.li(ui.strong("Precision"), ": Quality of positive predictions."),
-                    ui.tags.li(ui.strong("Recall"), ": Quantity of positives found."),
-                    ui.tags.li(ui.strong("Coefficients"), ": Positive values increase likelihood; negative values decrease it.")
+        ui.layout_sidebar(
+            ui.sidebar(
+                ui.h5("Model Configuration"),
+                ui.p("Select the variables to include in the training model:"),
+                
+                ui.input_selectize(
+                    "model_numeric", 
+                    "Numerical Variables:", 
+                    choices=available_numeric, 
+                    selected=default_numeric, 
+                    multiple=True
+                ),
+                
+                ui.input_selectize(
+                    "model_categorical", 
+                    "Categorical Variables:", 
+                    choices=available_categorical, 
+                    selected=default_categorical, 
+                    multiple=True
+                ),
+                
+                ui.hr(),
+                ui.h5("Graph Settings"),
+                
+                # Dynamic Radio Buttons
+                ui.input_radio_buttons(
+                    "target_view",
+                    "View Predictors For:",
+                    choices=["A Lot of Growth", "A Little Growth"], 
+                    selected="A Lot of Growth"
                 )
             ),
-            col_widths=(5, 7)
-        ),
-        ui.card(
-            ui.card_header("Feature Importance: Drivers of 'A Lot of Growth'"),
-            ui.output_plot("analysis_plot", height="500px")
+            ui.layout_columns(
+                ui.card(
+                    ui.card_header("Model Performance Metrics"),
+                    ui.h5("Accuracy Score"),
+                    ui.output_text_verbatim("accuracy_score"),
+                    ui.h5("Detailed Classification Report"),
+                    ui.output_text_verbatim("class_report"),
+                ),
+                ui.card(
+                    ui.card_header("Understanding the Model"),
+                    
+                    ui.h5("Interactive Controls"),
+                    ui.p("Use the sidebar on the left to add or remove variables from the model. You can also toggle the graph to see predictors for 'A Little Growth' vs 'A Lot of Growth'."),
+
+                    ui.h5("What is Logistic Regression?"),
+                    ui.p("Unlike linear regression, which predicts a number, Logistic Regression predicts the probability of an event happening (like a plant growing a lot)."),
+                    
+                    ui.h5("Understanding the Outputs"),
+                    ui.tags.ul(
+                        ui.tags.li(ui.strong("Precision"), ": When the model predicts 'A Lot of Growth', how often is it correct? (Quality)."),
+                        ui.tags.li(ui.strong("Recall"), ": Out of all actual 'A Lot of Growth' cases, how many did the model find? (Quantity)."),
+                        ui.tags.li(ui.strong("Coefficients"), ": Positive values (Green) increase the likelihood; Negative values (Red) decrease it.")
+                    )
+                ),
+                col_widths=(5, 7)
+            ),
+            ui.card(
+                ui.card_header("Feature Importance Graph"),
+                ui.output_plot("analysis_plot", height="500px")
+            )
         )
     ),
 
-    # Tab 4: PCA Analysis (New)
+    # Tab 4: PCA Analysis
     ui.nav_panel(
         "PCA Analysis",
         ui.layout_columns(
@@ -145,6 +207,17 @@ def server(input, output, session):
             ui.update_selectize("filter_site", choices=sites)
             ui.update_selectize("filter_species", choices=species)
             ui.update_selectize("filter_growth", choices=growth)
+            
+            valid_num = [c for c in available_numeric if c in df.columns]
+            valid_cat = [c for c in available_categorical if c in df.columns]
+            sel_num = [c for c in default_numeric if c in valid_num]
+            sel_cat = [c for c in default_categorical if c in valid_cat]
+
+            ui.update_selectize("model_numeric", choices=valid_num, selected=sel_num)
+            ui.update_selectize("model_categorical", choices=valid_cat, selected=sel_cat)
+            
+            if growth:
+                ui.update_radio_buttons("target_view", choices=growth, selected=growth[0])
 
     @reactive.Effect
     @reactive.event(input.reset_filters)
@@ -169,15 +242,15 @@ def server(input, output, session):
     @reactive.Calc
     def model_results():
         if df.empty: return {}
-        # Using fixed features available in your primary dataset
+        
         target = 'growth_category'
-        numeric_features = [
-            'average_air_temperature', 'average_humidity', 
-            'avg_solar_irradiance', 'avg_soil_water_content', 'average_air_pressure'
-        ]
-        categorical_features = ['species', 'site', 'plot']
+        numeric_features = list(input.model_numeric())
+        categorical_features = list(input.model_categorical())
+        
+        if not numeric_features and not categorical_features:
+            return None
 
-        # Verify columns exist before running
+        # Check existing columns
         existing_numeric = [c for c in numeric_features if c in df.columns]
         existing_cat = [c for c in categorical_features if c in df.columns]
 
@@ -190,6 +263,7 @@ def server(input, output, session):
             ('num', numeric_transformer, existing_numeric),
             ('cat', categorical_transformer, existing_cat)
         ])
+        
         model = Pipeline(steps=[
             ('preprocessor', preprocessor),
             ('classifier', LogisticRegression(multi_class='multinomial', solver='lbfgs', max_iter=1000))
@@ -207,162 +281,163 @@ def server(input, output, session):
             "numeric_features": existing_numeric, "categorical_features": existing_cat
         }
 
-    # -- C. PCA Logic (New) --
+    # -- C. PCA Logic --
     @reactive.Calc
     def pca_results():
         if df.empty: return None
         
-        # Select numeric columns available for PCA
-        # We try to use the list from your snippet, but fallback to what is actually in the CSV
-        potential_cols = [
-            "plot", "average_stem_radius", "change_stem_radius", "average_basal_area", 
-            "average_soil_temperature", "average_air_pressure", "average_humidity", 
-            "avg_solar_irradiance", "avg_soil_water_content", "freeze_flag",
-            # Fallback for old CSV
-            "average_air_temperature" 
-        ]
-        
-        # Filter for columns that actually exist in the dataframe and are numeric
+        potential_cols = available_numeric
         pca_cols = [c for c in potential_cols if c in df.columns and pd.api.types.is_numeric_dtype(df[c])]
         
         if not pca_cols: return None
 
         X_pca = df[pca_cols].dropna()
         
-        # Pipeline
-        pca_pipe = Pipeline(steps=[
-            ("scaler", StandardScaler()),
-            ("pca", PCA())
-        ])
-        
+        pca_pipe = Pipeline(steps=[("scaler", StandardScaler()), ("pca", PCA())])
         pca_pipe.fit(X_pca)
         pca_model = pca_pipe.named_steps["pca"]
         
-        # Data for Scree Plot
         explained_var = pca_model.explained_variance_ratio_
-        cum_explained_var = np.cumsum(explained_var)
         ev_df = pd.DataFrame({
             "PC": [f"PC{i+1}" for i in range(len(explained_var))],
-            "ExplainedVariance": explained_var,
-            "CumulativeVariance": cum_explained_var
+            "ExplainedVariance": explained_var
         })
 
-        # Transformed Data for Scatter
         X_pca_scores = pca_pipe.transform(X_pca)
-        pc_cols = [f"PC{i+1}" for i in range(X_pca_scores.shape[1])]
-        scores_df = pd.DataFrame(X_pca_scores, columns=pc_cols, index=X_pca.index)
+        scores_df = pd.DataFrame(
+            X_pca_scores, 
+            columns=[f"PC{i+1}" for i in range(X_pca_scores.shape[1])], 
+            index=X_pca.index
+        )
         
-        # Re-attach metadata for hovering (safely)
         if 'species' in df.columns: scores_df['species'] = df.loc[X_pca.index, 'species']
         if 'growth_category' in df.columns: scores_df['Growth'] = df.loc[X_pca.index, 'growth_category']
         
         return {
-            "X_pca": X_pca,
-            "ev_df": ev_df,
-            "scores_df": scores_df,
-            "corr_matrix": X_pca.corr()
+            "X_pca": X_pca, "ev_df": ev_df, "scores_df": scores_df, "corr_matrix": X_pca.corr()
         }
 
-    # -- Outputs: Data Table --
+    # -- Outputs --
     @render.data_frame
     def data_table():
         return render.DataTable(filtered_df())
 
-    # -- Outputs: Logistic Regression --
     @render.text
     def accuracy_score():
         res = model_results()
-        return f"{res['score']:.4f}" if res else "No data"
+        if not res: return "Please select at least one variable."
+        return f"{res['score']:.4f}"
 
     @render.text
     def class_report():
         res = model_results()
-        return res['report_txt'] if res else "No data"
+        if not res: return ""
+        return res['report_txt']
 
     @render.plot
     def analysis_plot():
         res = model_results()
         if not res: return
-        # ... (Existing Matplotlib code for Coefficients/Performance) ...
-        # Simplified for brevity in this snippet, assumes previous logic matches
+        
         model = res["model"]
         report_dict = res["report_dict"]
         num_feats = res["numeric_features"]
         cat_feats = res["categorical_features"]
         
-        # 1. Coefficients
         cat_names = model.named_steps['preprocessor'].named_transformers_['cat'].named_steps['encoder'].get_feature_names_out(cat_feats)
-        feat_names = num_feats + list(cat_names)
-        target_cls = 'A Lot of Growth'
+        feature_names = num_feats + list(cat_names)
         
-        if target_cls in model.classes_:
-            idx = list(model.classes_).index(target_cls)
-            coefs = model.named_steps['classifier'].coef_[idx]
-            df_coef = pd.DataFrame({'Feature': feat_names, 'Coefficient': coefs})
-            df_coef = df_coef.reindex(df_coef.Coefficient.abs().sort_values(ascending=False).index).head(5)
+        target_class = input.target_view()
+        coefficients = []
+
+        if hasattr(model.named_steps['classifier'], 'coef_'):
+            coefs = model.named_steps['classifier'].coef_
+            
+            if coefs.shape[0] == 1:
+                positive_class = model.classes_[1]
+                raw_coefs = coefs[0]
+                if positive_class == target_class:
+                    coefficients = raw_coefs
+                else:
+                    coefficients = -raw_coefs
+            else:
+                if target_class in model.classes_:
+                    class_index = list(model.classes_).index(target_class)
+                    coefficients = coefs[class_index]
+        
+        if len(coefficients) > 0:
+            df_coef = pd.DataFrame({'Feature': feature_names, 'Coefficient': coefficients})
+            df_coef = df_coef.reindex(df_coef.Coefficient.abs().sort_values(ascending=False).index).head(10)
         else:
             df_coef = pd.DataFrame({'Feature': ['N/A'], 'Coefficient': [0]})
 
-        # 2. Performance
-        classes = [c for c in ['A Little Growth', 'A Lot of Growth', 'No Growth'] if c in report_dict]
-        df_perf = pd.DataFrame({
-            'Class': classes,
-            'Precision': [report_dict[c]['precision'] for c in classes],
-            'Recall': [report_dict[c]['recall'] for c in classes]
-        }).melt(id_vars='Class', var_name='Metric', value_name='Score')
+        # Performance Metrics
+        classes_to_plot = [c for c in model.classes_ if c in report_dict and c != 'accuracy']
+        perf_data = {
+            'Class': classes_to_plot,
+            'Precision': [report_dict[c]['precision'] for c in classes_to_plot],
+            'Recall':    [report_dict[c]['recall'] for c in classes_to_plot]
+        }
+        df_perf = pd.DataFrame(perf_data).melt(id_vars='Class', var_name='Metric', value_name='Score')
 
+        # --- Plotting ---
         fig, axes = plt.subplots(1, 2, figsize=(15, 6))
-        sns.barplot(x='Coefficient', y='Feature', data=df_coef, ax=axes[0], palette='viridis')
-        axes[0].set_title(f"Top 5 Drivers of '{target_cls}'")
+        sns.set_style("whitegrid")
         
+        # 1. Feature Importance (Dynamic Colors)
+        colors = ['#2ca02c' if c > 0 else '#d62728' for c in df_coef['Coefficient']]
+        
+        sns.barplot(
+            x='Coefficient', 
+            y='Feature', 
+            data=df_coef, 
+            ax=axes[0], 
+            palette=colors, 
+            edgecolor='black'
+        )
+        axes[0].set_title(f"Top 10 Drivers of '{target_class}'", fontsize=14, weight='bold')
+        axes[0].set_xlabel("Impact (Log-Odds Coefficient)")
+        axes[0].axvline(0, color='black', linewidth=1)
+        
+        min_c, max_c = df_coef['Coefficient'].min(), df_coef['Coefficient'].max()
+        padding = max(0.3, (max_c - min_c) * 0.2)
+        axes[0].set_xlim(min_c - padding, max_c + padding)
+        
+        for i, v in enumerate(df_coef['Coefficient']):
+            axes[0].text(v + (padding * 0.05 if v > 0 else -padding * 0.05), i, f"{v:+.2f}", va='center', ha='left' if v > 0 else 'right', fontsize=10, color='black')
+
+        # 2. Performance (Random Chance = 0.50)
         if not df_perf.empty:
-            sns.barplot(x='Class', y='Score', hue='Metric', data=df_perf, ax=axes[1], palette='RdBu')
-            axes[1].set_title("Model Performance")
+            sns.barplot(x='Class', y='Score', hue='Metric', data=df_perf, ax=axes[1], palette='RdBu', edgecolor='black')
+            axes[1].set_title("Model Performance by Category", fontsize=14, weight='bold')
             axes[1].set_ylim(0, 1.0)
-            axes[1].axhline(0.33, color='red', linestyle='--')
+            axes[1].axhline(0.50, color='red', linestyle='--', label='Random Chance (0.50)')
+            axes[1].legend(loc='lower center')
         
         plt.tight_layout()
         return fig
 
-    # -- Outputs: PCA (Plotly) --
+    # -- Outputs: PCA --
     @render_widget
     def corr_matrix_plot():
         res = pca_results()
         if not res: return go.Figure()
-        return px.imshow(
-            res["corr_matrix"], text_auto=True, color_continuous_scale="RdBu_r", aspect="auto",
-            title="Correlation Matrix"
-        )
+        return px.imshow(res["corr_matrix"], text_auto=True, color_continuous_scale="RdBu_r", aspect="auto", title="Correlation Matrix")
 
     @render_widget
     def scree_plot():
         res = pca_results()
         if not res: return go.Figure()
-        return px.line(
-            res["ev_df"], x="PC", y="ExplainedVariance", markers=True,
-            title="Scree Plot: Proportion of Variance Explained"
-        )
+        return px.line(res["ev_df"], x="PC", y="ExplainedVariance", markers=True, title="Scree Plot")
 
     @render_widget
     def pca_scatter_plot():
         res = pca_results()
         if not res: return go.Figure()
         sdf = res["scores_df"]
-        
-        # Check if we have enough PCs to plot PC2 vs PC3
         x_col = "PC2" if "PC2" in sdf.columns else "PC1"
         y_col = "PC3" if "PC3" in sdf.columns else "PC2"
-        
-        # Color by growth if available, else species
-        color_col = "Growth" if "Growth" in sdf.columns else (
-            "species" if "species" in sdf.columns else None
-        )
-
-        return px.scatter(
-            sdf, x=x_col, y=y_col, color=color_col,
-            hover_data=sdf.columns,
-            title=f"PCA Scatter: {x_col} vs {y_col}",
-            opacity=0.7, height=600
-        )
+        color_col = "Growth" if "Growth" in sdf.columns else ("species" if "species" in sdf.columns else None)
+        return px.scatter(sdf, x=x_col, y=y_col, color=color_col, hover_data=sdf.columns, title=f"PCA Scatter: {x_col} vs {y_col}", opacity=0.7, height=600)
 
 app = App(app_ui, server)
