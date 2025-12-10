@@ -1,0 +1,9 @@
+pandas
+numpy
+sklearn
+matplotlib
+seaborn
+plotly.express
+shiny
+shinywidgets
+datetime
