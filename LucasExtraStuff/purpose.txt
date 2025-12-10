@@ -1,4 +1,0 @@
-Lucas made this directory. I am working on the Rivanna remote desktop and I 
-forgot my password for the Linux account... so idk how to download VSCode bc I 
-have to do it thru terminal on here. So I have some files that help me navigate 
-things more easily. 
