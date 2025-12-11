@@ -506,7 +506,7 @@ def server(input, output, session):
             "X_pca": X_pca, 
             "ev_df": ev_df, 
             "scores_df": scores_df, 
-            "corr_matrix": X_pca.drop('change_basal_area').corr(),
+            "corr_matrix": X_pca.corr(),
             "alldata_w_pcs": alldata_w_pcs,
             "loading_df": loading_df,
             "pca_cols": pca_cols
