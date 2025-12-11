@@ -443,6 +443,9 @@ app_ui = ui.page_navbar(
             # Bottom Card: KNN Scatter Plot
             ui.card(
                 ui.card_header("KNN Scatter Plot"),
+                ui.input_select("knn_scatter_color_by", "Color by:",
+                                  {"target": "True Class", "pred": "Predicted Class", "correct": "Correct / Incorrect"},
+                                  selected="target"),
                 output_widget("knn_scatter_plot", height="500px")
             )
         )
@@ -620,8 +623,8 @@ def server(input, output, session):
         target_col = 'growth_category'
         cat_cols = list(input.knn_model_cat())
         num_cols = list(input.knn_model_num())
-        existing_numeric = [c for c in num_cols if c in df.columns]
-        existing_cat = [c for c in cat_cols if c in df.columns]
+        num_cols = [c for c in num_cols if c in df.columns]
+        cat_cols = [c for c in cat_cols if c in df.columns]
         labels = list(df[target_col].unique())
 
         y = df[target_col]
@@ -682,13 +685,32 @@ def server(input, output, session):
         knn_accuracy = report_dict['accuracy']
         knn_b_accuracy = balanced_accuracy_score(y_test, y_pred)
 
+        # Prepare PCA data
+        y_true = y_test.copy().reset_index(drop=True)
+        y_true.columns = ['target']
+        y_pred = pd.DataFrame(y_pred, columns=['pred'])
+        
+        # Compute PCA
+        pca = PCA(n_components=2)
+        x_num = X_test[num_cols]
+        X_pca = pd.DataFrame(pca.fit_transform(x_num), columns=["PC1", "PC2"])
+
+        # Combine for plotting
+        df_plot = pd.concat([X_pca, y_true, y_pred], axis=1)
+        df_plot.rename(columns={'growth_category': 'target'}, inplace=True)
+        df_plot["correct"] = df_plot["target"] == df_plot["pred"]
+        df_plot["correct"] = df_plot["correct"].map({True: "Correct", False: "Incorrect"})
+
         return {
             "knn_accuracy_score": knn_accuracy,
             "knn_b_accuracy_score": knn_b_accuracy,
             "labels": labels,
+            "x_test": X_test,
             "y_test": y_test,
             "y_pred": y_pred,
             "k_results_df": k_results_df,
+            "num_cols": num_cols,
+            "cat_cols": cat_cols,
             # "model": knn_final,
             # "report_dict": report_dict,
             "best_k": best_k,
@@ -1167,9 +1189,34 @@ def server(input, output, session):
     @render_widget
     def knn_scatter_plot():
         res = knn_results()
-        if not res: return go.Figure()
+        if not res:
+            return go.Figure()
 
-        return go.Figure()
+        # Get the dropdown selection
+        knn_scatter_color_by = input.knn_scatter_color_by()  # 'target', 'pred', 'correct'
+
+        df_plot = res['df_plot']
+
+        # Create scatter plot
+        fig = px.scatter(
+            df_plot,
+            x="PC1",
+            y="PC2",
+            color=df_plot[knn_scatter_color_by],
+            hover_data=df_plot.columns,
+            title="PCA Scatter Plot",
+            opacity=0.65
+        )
+
+        # Update legend title nicely
+        legend_title_map = {
+            "target": "True Class",
+            "pred": "Predicted Class",
+            "correct": "Correct / Incorrect"
+        }
+        fig.update_layout(legend_title_text=legend_title_map.get(knn_scatter_color_by, knn_scatter_color_by))
+
+        return fig
     
 
 
