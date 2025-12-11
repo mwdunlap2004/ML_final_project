@@ -130,6 +130,7 @@ app_ui = ui.page_navbar(
             * **Logistic Regression**: A predictive model used to classify change. You can now customize the inputs and explore drivers for specific categories.
             * **Principal Component Analysis (PCA)**: A dimensionality reduction technique used to explore the structure of the data and identify natural clusters.
             * **K-Nearest Neighbors (KNN)**: A supervised machine learning model used to classify growth categories.
+            * **K-Means:** An unsupervised machine learning model used to identify natural clusters in the data.
             """
         )
     ),
