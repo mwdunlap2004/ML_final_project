@@ -101,16 +101,16 @@ app_ui = ui.page_navbar(
             """
             # Project Overview: Plant Growth Prediction
             
-            This application allows researchers to interactively analyze plant growth outcomes using Logistic Regression and Principal Component Analysis (PCA).
+            This application allows researchers to interactively analyze Tree Amplitude outcomes.
             
             ### 1. The Goal
-            Our primary objective is to determine which environmental factors—such as soil moisture or solar intensity—are the strongest predictors of robust plant growth.
+            Our primary objective is to determine which environmental factors—such as soil moisture or solar intensity—are the strongest predictors of tree radius amplitude.
 
             ### 2. Methodologies
             * **Multiple Regression**: A statistical modeling approach used to quantify how environmental variables influence stem radius amplitude, the size of the daily swelling–shrinking cycle of the tree stem. By modeling predictors like VPD, soil moisture, and solar exposure (and their interactions), the MLR helps identify which conditions most strongly increase or dampen these daily changes in stem size.
-            * **Logistic Regression**: A predictive model used to classify growth. You can now customize the inputs and explore drivers for specific growth categories (e.g., "A Little Growth" vs "A Lot of Growth").
+            * **Logistic Regression**: A predictive model used to classify change. You can now customize the inputs and explore drivers for specific categories.
             * **Principal Component Analysis (PCA)**: A dimensionality reduction technique used to explore the structure of the data and identify natural clusters.
-            * **K-Nearest Neighbors (KNN)**: A supervised machine learning model used to classify growth categories.
+            * **K-Nearest Neighbors (KNN)**: A supervised machine learning model used to classify change categories.
             """
         )
     ),
@@ -264,15 +264,15 @@ app_ui = ui.page_navbar(
                     ui.card_header("Understanding the Model"),
                     
                     ui.h5("Interactive Controls"),
-                    ui.p("Use the sidebar on the left to add or remove variables from the model. You can also toggle the graph to see predictors for 'A Little Growth' vs 'A Lot of Growth'."),
+                    ui.p("Use the sidebar on the left to add or remove variables from the model. You can also toggle the graph to see predictors."),
 
                     ui.h5("What is Logistic Regression?"),
-                    ui.p("Unlike linear regression, which predicts a number, Logistic Regression predicts the probability of an event happening (like a plant growing a lot)."),
+                    ui.p("Unlike linear regression, which predicts a number, Logistic Regression predicts the probability of an event happening (like a large basal area amplitude)."),
                     
                     ui.h5("Understanding the Outputs"),
                     ui.tags.ul(
-                        ui.tags.li(ui.strong("Precision"), ": When the model predicts 'A Lot of Growth', how often is it correct? (Quality)."),
-                        ui.tags.li(ui.strong("Recall"), ": Out of all actual 'A Lot of Growth' cases, how many did the model find? (Quantity)."),
+                        ui.tags.li(ui.strong("Precision"), ": When the model predicts 'Extreme Change', how often is it correct? (Quality)."),
+                        ui.tags.li(ui.strong("Recall"), ": Out of all actual 'Extreme Change' cases, how many did the model find? (Quantity)."),
                         ui.tags.li(ui.strong("Coefficients"), ": Positive values (Green) increase the likelihood; Negative values (Red) decrease it.")
                     )
                 ),
