@@ -1,14 +1,14 @@
 import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split, GridSearchCV
-from sklearn.linear_model import LogisticRegression
+from sklearn.linear_model import LogisticRegression, LinearRegression
 from sklearn.preprocessing import StandardScaler, OneHotEncoder, OrdinalEncoder
 from sklearn.decomposition import PCA
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
 from sklearn.impute import SimpleImputer
-from sklearn.metrics import classification_report, balanced_accuracy_score, confusion_matrix
+from sklearn.metrics import classification_report, balanced_accuracy_score, confusion_matrix, silhouette_score
 import matplotlib.pyplot as plt
 import seaborn as sns
 import plotly.express as px
@@ -16,6 +16,8 @@ from shiny import App, render, ui, reactive
 from shinywidgets import output_widget, render_widget  # Required for Plotly
 from datetime import date
 import plotly.graph_objects as go
+from sklearn.cluster import KMeans
+
 
 df = pd.read_csv('categorized_data.csv')
 df['Date'] = pd.to_datetime(df['Date']) 
@@ -74,6 +76,15 @@ knn_available_cat = [
     'site'
 ]
 
+kmeans_default_num = ["average_air_temperature", 
+                      "average_humidity", 
+                      "avg_solar_irradiance", 
+                      "avg_soil_water_content", 
+                      "average_air_pressure"]
+
+kmeans_default_cat = ["species", 
+                      "plot", 
+                      "site"]
 
 # Defaults
 default_numeric = ['average_humidity', 'avg_solar_irradiance', 'avg_soil_water_content', 'average_air_pressure','average_stem_radius']
@@ -89,6 +100,15 @@ knn_default_num = [
 ]
 knn_default_cat = ['species']
 
+kmeans_default_num = ["average_air_temperature", 
+                      "average_humidity", 
+                      "avg_solar_irradiance", 
+                      "avg_soil_water_content", 
+                      "average_air_pressure"]
+
+kmeans_default_cat = ["species", 
+                      "plot", 
+                      "site"]
 
 
 # --- UI Definition ---
@@ -100,19 +120,20 @@ app_ui = ui.page_navbar(
             """
             # Project Overview: Plant Growth Prediction
             
-            This application allows researchers to interactively analyze plant growth outcomes using Logistic Regression and Principal Component Analysis (PCA).
+            This application allows researchers to interactively analyze Tree Amplitude outcomes.
             
             ### 1. The Goal
-            Our primary objective is to determine which environmental factors—such as soil moisture or solar intensity—are the strongest predictors of robust plant growth.
+            Our primary objective is to determine which environmental factors—such as soil moisture or solar intensity—are the strongest predictors of tree radius amplitude.
 
             ### 2. Methodologies
             * **Multiple Regression**: A statistical modeling approach used to quantify how environmental variables influence stem radius amplitude, the size of the daily swelling–shrinking cycle of the tree stem. By modeling predictors like VPD, soil moisture, and solar exposure (and their interactions), the MLR helps identify which conditions most strongly increase or dampen these daily changes in stem size.
-            * **Logistic Regression**: A predictive model used to classify growth. You can now customize the inputs and explore drivers for specific growth categories (e.g., "A Little Growth" vs "A Lot of Growth").
+            * **Logistic Regression**: A predictive model used to classify change. You can now customize the inputs and explore drivers for specific categories.
             * **Principal Component Analysis (PCA)**: A dimensionality reduction technique used to explore the structure of the data and identify natural clusters.
             * **K-Nearest Neighbors (KNN)**: A supervised machine learning model used to classify growth categories.
             """
         )
     ),
+
 
     # Tab 2: Data Explorer
     ui.nav_panel(
@@ -263,15 +284,15 @@ app_ui = ui.page_navbar(
                     ui.card_header("Understanding the Model"),
                     
                     ui.h5("Interactive Controls"),
-                    ui.p("Use the sidebar on the left to add or remove variables from the model. You can also toggle the graph to see predictors for 'A Little Growth' vs 'A Lot of Growth'."),
+                    ui.p("Use the sidebar on the left to add or remove variables from the model. You can also toggle the graph to see predictors."),
 
                     ui.h5("What is Logistic Regression?"),
-                    ui.p("Unlike linear regression, which predicts a number, Logistic Regression predicts the probability of an event happening (like a plant growing a lot)."),
+                    ui.p("Unlike linear regression, which predicts a number, Logistic Regression predicts the probability of an event happening (like a large basal area amplitude)."),
                     
                     ui.h5("Understanding the Outputs"),
                     ui.tags.ul(
-                        ui.tags.li(ui.strong("Precision"), ": When the model predicts 'A Lot of Growth', how often is it correct? (Quality)."),
-                        ui.tags.li(ui.strong("Recall"), ": Out of all actual 'A Lot of Growth' cases, how many did the model find? (Quantity)."),
+                        ui.tags.li(ui.strong("Precision"), ": When the model predicts 'Extreme Change', how often is it correct? (Quality)."),
+                        ui.tags.li(ui.strong("Recall"), ": Out of all actual 'Extreme Change' cases, how many did the model find? (Quantity)."),
                         ui.tags.li(ui.strong("Coefficients"), ": Positive values (Green) increase the likelihood; Negative values (Red) decrease it.")
                     )
                 ),
@@ -381,6 +402,21 @@ app_ui = ui.page_navbar(
         ),
         # Section 3: Principal Component Regression
         ui.h3("Principal Component Regression", style="background-color: #f0f0f0; padding: 10px; margin-top: 30px; margin-bottom: 20px; border-left: 5px solid #007bff;"),
+        ui.layout_columns(
+            ui.card(
+                ui.card_header("PCR Metrics"),
+                ui.output_text_verbatim("pcr_metrics")
+            ),
+            ui.card(
+                ui.card_header("6. Model Performance vs Components"),
+                output_widget("pcr_metrics_plot")
+            ),
+            col_widths=(5, 7)
+        ),
+        ui.card(
+            ui.card_header("7. PCR Predicted vs Actual"),
+            output_widget("pcr_pred_vs_actual")
+        )
     ),
 
 
@@ -447,6 +483,76 @@ app_ui = ui.page_navbar(
                                   {"target": "True Class", "pred": "Predicted Class", "correct": "Correct / Incorrect"},
                                   selected="target"),
                 output_widget("knn_scatter_plot", height="500px")
+            )
+        )
+    ),
+
+    # Tab 6: K-Means Model
+    ui.nav_panel(
+        "K-Means",
+
+        ui.layout_sidebar(
+            ui.sidebar(
+                ui.h5("K-Means Configuration"),
+
+                ui.input_action_button("run_kmeans", "Run K-Means Model"),
+
+                ui.p("Select the variables to include in clustering:"),
+
+                ui.input_selectize(
+                    "kmeans_model_num",
+                    "Numerical Variables:",
+                    choices=available_numeric,
+                    selected=kmeans_default_num,
+                    multiple=True
+                ),
+
+                ui.input_selectize(
+                    "kmeans_model_cat",
+                    "Categorical Variables:",
+                    choices=available_categorical,
+                    selected=kmeans_default_cat,
+                    multiple=True
+                ),
+
+                ui.hr(),
+                ui.input_slider(
+                    "kmeans_k",
+                    "Number of clusters (k):",
+                    min=2,
+                    max=10,
+                    value=3,
+                    step=1
+                )
+            ),
+
+            # Main panel
+            ui.card(
+                ui.card_header("Elbow Plot (Within-Cluster Sum of Squares)"),
+                output_widget("kmeans_elbow_plot")
+            ),
+
+            ui.card(
+                ui.card_header("Cluster Diagnostics"),
+                ui.layout_columns(
+                    ui.card(
+                        ui.card_header("Silhouette & Cluster Sizes"),
+                        ui.output_text_verbatim(
+                            "kmeans_summary",
+                            placeholder="Click 'Run K-Means Model' to fit clustering."
+                        )
+                    ),
+                    ui.card(
+                        ui.card_header("Change in Basal Area by Cluster"),
+                        output_widget("kmeans_boxplot")
+                    ),
+                    col_widths=(4, 8)
+                )
+            ),
+
+            ui.card(
+                ui.card_header("Cluster Scatter Plot"),
+                output_widget("kmeans_scatter_plot")
             )
         )
     )
@@ -720,9 +826,80 @@ def server(input, output, session):
             "df_perf_melted": df_perf_melted,
             "df_plot": df_plot
         }
+    
+    # -- E. K-Means Logic --
+    @reactive.Calc
+    @reactive.event(input.run_kmeans)
+    def kmeans_results():
+        if df.empty:
+            return {}
 
+        num_cols = list(input.kmeans_model_num())
+        cat_cols = list(input.kmeans_model_cat())
 
+        existing_num = [c for c in num_cols if c in df.columns]
+        existing_cat = [c for c in cat_cols if c in df.columns]
 
+        if not existing_num and not existing_cat:
+            return {}
+
+        X = df[existing_num + existing_cat].dropna()
+        if X.empty:
+            return {}
+
+        preprocessor = ColumnTransformer(
+            transformers=[
+                ("num", StandardScaler(), existing_num),
+                ("cat", OneHotEncoder(handle_unknown="ignore"), existing_cat)
+            ]
+        )
+
+        pipe = Pipeline(
+            steps=[
+                ("preprocessor", preprocessor),
+                ("kmeans", KMeans(init="k-means++", n_init=10, random_state=6021))
+            ]
+        )
+
+        k_values = list(range(2, 11))
+        wcss = []
+
+        for k in k_values:
+            pipe.set_params(kmeans__n_clusters=k)
+            pipe.fit(X)
+            inertia = pipe["kmeans"].inertia_
+            wcss.append(inertia)
+
+        chosen_k = int(input.kmeans_k())
+        if chosen_k < min(k_values) or chosen_k > max(k_values):
+            chosen_k = 3  # safe fallback
+
+        pipe.set_params(kmeans__n_clusters=chosen_k)
+        pipe.fit(X)
+
+        labels = pipe["kmeans"].labels_
+
+        df_clusters = df.loc[X.index].copy()
+        df_clusters["cluster"] = labels
+
+        try:
+            X_transformed = pipe["preprocessor"].transform(X)
+            sil = float(silhouette_score(X_transformed, labels))
+        except Exception:
+            sil = None
+
+        cluster_sizes = df_clusters["cluster"].value_counts().sort_index()
+
+        return {
+            "chosen_k": chosen_k,
+            "wcss_k_values": k_values,
+            "wcss": wcss,
+            "silhouette": sil,
+            "cluster_sizes": cluster_sizes,
+            "df_clusters": df_clusters,
+            "numeric_cols": existing_num,
+            "categorical_cols": existing_cat,
+        }
 
 
     # -- Outputs --
@@ -824,6 +1001,81 @@ def server(input, output, session):
         
         plt.tight_layout()
         return fig
+    
+    # -- E. K-Means Logic --
+    @reactive.Calc
+    @reactive.event(input.run_kmeans)
+    def kmeans_results():
+        if df.empty:
+            return {}
+
+        num_cols = list(input.kmeans_model_num())
+        cat_cols = list(input.kmeans_model_cat())
+
+        existing_num = [c for c in num_cols if c in df.columns]
+        existing_cat = [c for c in cat_cols if c in df.columns]
+
+        if not existing_num and not existing_cat:
+            return {}
+
+        X = df[existing_num + existing_cat].dropna()
+        if X.empty:
+            return {}
+
+        preprocessor = ColumnTransformer(
+            transformers=[
+                ("num", StandardScaler(), existing_num),
+                ("cat", OneHotEncoder(handle_unknown="ignore"), existing_cat)
+            ]
+        )
+
+        pipe = Pipeline(
+            steps=[
+                ("preprocessor", preprocessor),
+                ("kmeans", KMeans(init="k-means++", n_init=10, random_state=6021))
+            ]
+        )
+
+        k_values = list(range(2, 11))
+        wcss = []
+
+        for k in k_values:
+            pipe.set_params(kmeans__n_clusters=k)
+            pipe.fit(X)
+            inertia = pipe["kmeans"].inertia_
+            wcss.append(inertia)
+
+        chosen_k = int(input.kmeans_k())
+        if chosen_k < min(k_values) or chosen_k > max(k_values):
+            chosen_k = 3  # safe fallback
+
+        pipe.set_params(kmeans__n_clusters=chosen_k)
+        pipe.fit(X)
+
+        labels = pipe["kmeans"].labels_
+
+        df_clusters = df.loc[X.index].copy()
+        df_clusters["cluster"] = labels
+
+        try:
+            X_transformed = pipe["preprocessor"].transform(X)
+            sil = float(silhouette_score(X_transformed, labels))
+        except Exception:
+            sil = None
+
+        cluster_sizes = df_clusters["cluster"].value_counts().sort_index()
+
+        return {
+            "chosen_k": chosen_k,
+            "wcss_k_values": k_values,
+            "wcss": wcss,
+            "silhouette": sil,
+            "cluster_sizes": cluster_sizes,
+            "df_clusters": df_clusters,
+            "numeric_cols": existing_num,
+            "categorical_cols": existing_cat,
+        }
+
 
     # -- Outputs: PCA --
     @render_widget
@@ -994,7 +1246,181 @@ def server(input, output, session):
         
         return fig
         
+        # Principal Component Regression Section
+    @reactive.Calc
+    def pcr_results():
+        res = pca_results()
+        if not res:
+            return None
+        
+        alldata_w_pcs = res["alldata_w_pcs"]
+        
+        # Check if target variable exists
+        if 'change_basal_area' not in df.columns:
+            return None
+        
+        # Get indices where we have both PCA scores and target variable
+        valid_indices = alldata_w_pcs.index.intersection(df.index)
+        
+        # Prepare features (all PC columns) - excluding change_basal_area
+        pc_cols = [c for c in alldata_w_pcs.columns if c.startswith('PC')]
+        if not pc_cols:
+            return None
+        
+        X = alldata_w_pcs.loc[valid_indices, pc_cols].dropna()
+        y = df.loc[X.index, 'change_basal_area'].dropna()
+        
+        # Align X and y
+        common_idx = X.index.intersection(y.index)
+        X = X.loc[common_idx]
+        y = y.loc[common_idx]
+        
+        if len(X) < 10:  # Need minimum samples
+            return None
+        
+        # Train-test split
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y, test_size=0.25, random_state=42
+        )
+        
+        # Try different numbers of components
+        results = []
+        for n_pcs in range(1, min(len(pc_cols) + 1, 10)):
+            pcr_pipe = Pipeline([
+                ("pca", PCA(n_components=n_pcs)),
+                ("linreg", LinearRegression())
+            ])
+            pcr_pipe.fit(X_train, y_train)
+            
+            train_r2 = pcr_pipe.score(X_train, y_train)
+            test_r2 = pcr_pipe.score(X_test, y_test)
+            
+            y_train_pred = pcr_pipe.predict(X_train)
+            y_test_pred = pcr_pipe.predict(X_test)
+            
+            train_rmse = np.sqrt(np.mean((y_train - y_train_pred)**2))
+            test_rmse = np.sqrt(np.mean((y_test - y_test_pred)**2))
+            
+            results.append({
+                'n_components': n_pcs,
+                'train_r2': train_r2,
+                'test_r2': test_r2,
+                'train_rmse': train_rmse,
+                'test_rmse': test_rmse
+            })
+        
+        results_df = pd.DataFrame(results)
+        
+        # Fit model with optimal number of components (based on test R²)
+        best_n = results_df.loc[results_df['test_r2'].idxmax(), 'n_components']
+        
+        pcr_pipe_best = Pipeline([
+            ("pca", PCA(n_components=int(best_n))),
+            ("linreg", LinearRegression())
+        ])
+        pcr_pipe_best.fit(X_train, y_train)
+        
+        y_test_pred_best = pcr_pipe_best.predict(X_test)
+        
+        return {
+            'results_df': results_df,
+            'best_n': int(best_n),
+            'X_test': X_test,
+            'y_test': y_test,
+            'y_test_pred': y_test_pred_best,
+            'best_model': pcr_pipe_best
+        }
 
+    # Add these outputs to your server function
+
+    @render.text
+    def pcr_metrics():
+        res = pcr_results()
+        if not res:
+            return "PCR analysis not available. Ensure 'change_basal_area' exists in your data."
+        
+        best_n = res['best_n']
+        results_df = res['results_df']
+        best_row = results_df[results_df['n_components'] == best_n].iloc[0]
+        
+        output = f"Principal Component Regression Results\n"
+        output += f"=" * 50 + "\n\n"
+        output += f"Optimal number of components: {best_n}\n\n"
+        output += f"Train R²  : {best_row['train_r2']:.4f}\n"
+        output += f"Test  R²  : {best_row['test_r2']:.4f}\n"
+        output += f"Train RMSE: {best_row['train_rmse']:.4f}\n"
+        output += f"Test  RMSE: {best_row['test_rmse']:.4f}\n"
+        
+        return output
+
+    @render_widget
+    def pcr_pred_vs_actual():
+        res = pcr_results()
+        if not res:
+            return go.Figure()
+        
+        y_test = res['y_test']
+        y_test_pred = res['y_test_pred']
+        
+        fig = px.scatter(
+            x=y_test, 
+            y=y_test_pred,
+            labels={'x': 'Actual Values', 'y': 'Predicted Values'},
+            title=f'PCR: Predicted vs Actual (Test Set, n_components={res["best_n"]})',
+            opacity=0.6
+        )
+        
+        # Add perfect prediction line
+        min_val = min(y_test.min(), y_test_pred.min())
+        max_val = max(y_test.max(), y_test_pred.max())
+        
+        fig.add_scatter(
+            x=[min_val, max_val],
+            y=[min_val, max_val],
+            mode='lines',
+            name='Perfect Prediction',
+            line=dict(color='red', dash='dash')
+        )
+        
+        fig.update_layout(width=700, height=600)
+        
+        return fig
+
+    @render_widget
+    def pcr_metrics_plot():
+        res = pcr_results()
+        if not res:
+            return go.Figure()
+        
+        results_df = res['results_df']
+        
+        fig = go.Figure()
+        
+        fig.add_trace(go.Scatter(
+            x=results_df['n_components'],
+            y=results_df['test_r2'],
+            mode='lines+markers',
+            name='Test R²',
+            line=dict(color='blue', width=2)
+        ))
+        
+        fig.add_trace(go.Scatter(
+            x=results_df['n_components'],
+            y=results_df['train_r2'],
+            mode='lines+markers',
+            name='Train R²',
+            line=dict(color='lightblue', width=2, dash='dash')
+        ))
+        
+        fig.update_layout(
+            title='PCR Performance vs Number of Components',
+            xaxis_title='Number of Principal Components',
+            yaxis_title='R² Score',
+            width=700,
+            height=500
+        )
+        
+        return fig
 
     # Outputs Multiple Regression
     @render.text
@@ -1007,7 +1433,7 @@ def server(input, output, session):
         
         # Fit the mixed effects model
         model = smf.mixedlm(
-            "change_stem_radius ~ VPD * avg_soil_water_content + avg_solar_irradiance + day_of_year",
+            "change_stem_radius ~ VPD * avg_soil_water_content + avg_solar_irradiance",
             data=df_filtered,
             groups=df_filtered["tree"]
         ).fit()
@@ -1026,7 +1452,7 @@ def server(input, output, session):
         # Fit the mixed effects model
         model = smf.ols(
             formula="""
-                change_stem_radius ~ VPD * avg_soil_water_content + avg_solar_irradiance + C(tree) + day_of_year
+                change_stem_radius ~ VPD * avg_soil_water_content + avg_solar_irradiance + C(tree)
             """,
             data=df_filtered
         ).fit()
@@ -1219,8 +1645,4 @@ def server(input, output, session):
 
         return fig
     
-
-
-
-
 app = App(app_ui, server)
