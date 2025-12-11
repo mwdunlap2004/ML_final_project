@@ -401,6 +401,7 @@ app_ui = ui.page_navbar(
             ),
             col_widths=(3, 9)
         ),
+
         # Section 3: Principal Component Regression
         ui.h3("Principal Component Regression", style="background-color: #f0f0f0; padding: 10px; margin-top: 30px; margin-bottom: 20px; border-left: 5px solid #007bff;"),
         ui.layout_columns(
@@ -414,9 +415,23 @@ app_ui = ui.page_navbar(
             ),
             col_widths=(5, 7)
         ),
-        ui.card(
-            ui.card_header("7. PCR Predicted vs Actual"),
-            output_widget("pcr_pred_vs_actual")
+        ui.layout_columns(
+            ui.card(
+                ui.card_header("Select Principal Components"),
+                ui.p("Choose which PCs to include in the regression:"),
+                ui.input_checkbox_group(
+                    "pcr_selected_pcs",
+                    "Principal Components:",
+                    choices=["PC1", "PC2", "PC3", "PC4", "PC5", "PC6", "PC7", "PC8", "PC9"],
+                    selected=["PC1", "PC2", "PC3"]
+                ),
+                ui.input_action_button("update_pcr", "Update PCR Model", class_="btn-primary")
+            ),
+            ui.card(
+                ui.card_header("7. PCR Predicted vs Actual"),
+                output_widget("pcr_pred_vs_actual")
+            ),
+            col_widths=(3, 9)
         )
     ),
 
@@ -1411,11 +1426,82 @@ def server(input, output, session):
             'X_test': X_test,
             'y_test': y_test,
             'y_test_pred': y_test_pred_best,
-            'best_model': pcr_pipe_best
+            'best_model': pcr_pipe_best,
+            'X_train': X_train,
+            'y_train': y_train
         }
 
     # Add these outputs to your server function
 
+    # PCR with selected components
+    @reactive.Calc
+    @reactive.event(input.update_pcr)
+    def pcr_selected_results():
+        res = pca_results()
+        if not res:
+            return None
+        
+        alldata_w_pcs = res["alldata_w_pcs"]
+        
+        # Check if target variable exists
+        if 'change_basal_area' not in df.columns:
+            return None
+        
+        # Get selected PCs from checkbox
+        selected_pcs = list(input.pcr_selected_pcs())
+        if not selected_pcs:
+            return None
+        
+        # Get indices where we have both PCA scores and target variable
+        valid_indices = alldata_w_pcs.index.intersection(df.index)
+        
+        # Filter to only selected PCs
+        available_pcs = [c for c in selected_pcs if c in alldata_w_pcs.columns]
+        if not available_pcs:
+            return None
+        
+        X = alldata_w_pcs.loc[valid_indices, available_pcs].dropna()
+        y = df.loc[X.index, 'change_basal_area'].dropna()
+        
+        # Align X and y
+        common_idx = X.index.intersection(y.index)
+        X = X.loc[common_idx]
+        y = y.loc[common_idx]
+        
+        if len(X) < 10:  # Need minimum samples
+            return None
+        
+        # Train-test split
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y, test_size=0.25, random_state=42
+        )
+        
+        # Fit linear regression model (no PCA transform needed, already have PCs)
+        model = LinearRegression()
+        model.fit(X_train, y_train)
+        
+        train_r2 = model.score(X_train, y_train)
+        test_r2 = model.score(X_test, y_test)
+        
+        y_train_pred = model.predict(X_train)
+        y_test_pred = model.predict(X_test)
+        
+        train_rmse = np.sqrt(np.mean((y_train - y_train_pred)**2))
+        test_rmse = np.sqrt(np.mean((y_test - y_test_pred)**2))
+        
+        return {
+            'selected_pcs': selected_pcs,
+            'n_components': len(available_pcs),
+            'train_r2': train_r2,
+            'test_r2': test_r2,
+            'train_rmse': train_rmse,
+            'test_rmse': test_rmse,
+            'X_test': X_test,
+            'y_test': y_test,
+            'y_test_pred': y_test_pred,
+            'model': model
+        }
+    
     @render.text
     def pcr_metrics():
         res = pcr_results()
@@ -1438,18 +1524,28 @@ def server(input, output, session):
 
     @render_widget
     def pcr_pred_vs_actual():
-        res = pcr_results()
+        # Try to get selected results first, fall back to automatic results
+        res = pcr_selected_results()
+        if not res:
+            res = pcr_results()
         if not res:
             return go.Figure()
         
         y_test = res['y_test']
         y_test_pred = res['y_test_pred']
+        n_comp = res['n_components']
+        
+        # Get selected PCs if available
+        if 'selected_pcs' in res:
+            pc_info = f"Selected PCs: {', '.join(res['selected_pcs'])}"
+        else:
+            pc_info = f"n_components={n_comp}"
         
         fig = px.scatter(
             x=y_test, 
             y=y_test_pred,
             labels={'x': 'Actual Values', 'y': 'Predicted Values'},
-            title=f'PCR: Predicted vs Actual (Test Set, n_components={res["best_n"]})',
+            title=f'PCR: Predicted vs Actual (Test Set, {pc_info})',
             opacity=0.6
         )
         
@@ -1465,7 +1561,7 @@ def server(input, output, session):
             line=dict(color='red', dash='dash')
         )
         
-        fig.update_layout(width=700, height=600)
+        fig.update_layout(width=900, height=600)
         
         return fig
 
