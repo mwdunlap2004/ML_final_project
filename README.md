@@ -1,18 +1,47 @@
-# ML_final_project
- Created by Michael Dunlap, Cole Whittington, Lucas Rayder, Isaac Tabor, and Seth Spire
+# ML Final Project
 
+**Contributors:** Michael Dunlap, Cole Whittington, Lucas Rayder, Isaac Tabor, and Seth Spire
 
-The Data for this project is located [Here](https://www.earthdata.nasa.gov/data/catalog/ornl-cloud-arctictreeline-dendrometry-env-2185-1)
-Note that the data takes up 3 GBs, so it is challenging to run
+---
 
-The Finalized Data is called categorical_data.csv and is located in the Final App folder
+## Data Overview
 
-The Data Engineering Code is called Data_Engineering.R and adding_cats.ipynb, both are located on the main Repo
+The raw data for this project is sourced from NASA EarthData:
+[**ORNL Cloud Arctic Treeline Dendrometry Env**](https://www.earthdata.nasa.gov/data/catalog/ornl-cloud-arctictreeline-dendrometry-env-2185-1)
 
-The Final Published App is located [Here](https://019b094e-e373-2112-8a5e-ea2253e57131.share.connect.posit.cloud/)
+> **Note:** The raw data size exceeds **3 GB**. Downloading and running this locally may be challenging depending on your hardware.
 
-The code for this app is located in the Final App Folder
+**Processed Data:**
+* **File Name:** `categorical_data.csv`
+* **Location:** `Final App` folder
 
+---
 
-The Order of Work to Follow our process would be
-Data Engineering.R > Adding Cats.ipynb > Our own folders/work (like michael_log_regression) > Final_App > Published on Posit Cloud
+## Project Structure & Code
+
+The repository is organized as follows:
+
+* **Data Engineering:**
+    * `Data_Engineering.R` (Main Repo)
+    * `adding_cats.ipynb` (Main Repo)
+* **Application Source:**
+    * Located in the `Final App` folder.
+
+---
+
+## Workflow
+
+To replicate our process, execute the files in the following order:
+
+1.  `Data Engineering.R`
+2.  `Adding Cats.ipynb`
+3.  `Final_App` Source Code
+4.  Publish to Posit Cloud
+
+---
+
+## Live Application
+
+The final published application is hosted on Posit Cloud. You can view it here:
+
+[**View Final App**](https://019b094e-e373-2112-8a5e-ea2253e57131.share.connect.posit.cloud/)
