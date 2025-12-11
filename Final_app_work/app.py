@@ -525,38 +525,6 @@ app_ui = ui.page_navbar(
                     value=3,
                     step=1
                 ),
-                ui.input_selectize(
-                    "kmeans_model_cat", 
-                    "Categorical Variables:", 
-                    choices=knn_available_cat, 
-                    selected=kmeans_default_cat, 
-                    multiple=True
-                ),
-
-                ui.hr(),
-                ui.h5("Forest cluster notes"),
-
-                ui.input_text_area(
-                    "forest1_desc",
-                    "Forest 1 (Cluster 0):",
-                    placeholder="Hotter, less humid, sunnier, wetter, less air pressure, Only one species (P-glauca)",
-                    rows=3
-                ),
-
-                ui.input_text_area(
-                    "forest2_desc",
-                    "Forest 2 (Cluster 1):",
-                    placeholder="Colder, more humid, shady, drier, more air pressure, Mixed species",
-                    rows=3
-                ),
-
-                ui.input_text_area(
-                    "forest3_desc",
-                    "Forest 3 (Cluster 2):",
-                    placeholder="Warmer, average humidity, sunnier, wetter, higher air pressure, Mixed species",
-                    rows=3
-                ),
-
             ),
 
             # Main panel
@@ -589,9 +557,57 @@ app_ui = ui.page_navbar(
             ),
 
             ui.card(
-                ui.card_header("Forest Cluster Descriptions"),
-                ui.output_table("kmeans_forest_table")
-            ),
+                ui.card_header("Forest Cluster Notes"),
+
+                ui.tags.table(
+                    {"class": "table table-sm"},
+                    ui.tags.thead(
+                        ui.tags.tr(
+                            ui.tags.th("Cluster ID"),
+                            ui.tags.th("Forest Name"),
+                            ui.tags.th("Description")
+                        )
+                    ),
+                    ui.tags.tbody(
+                        ui.tags.tr(
+                            ui.tags.td("0"),
+                            ui.tags.td("Forest 1"),
+                            ui.tags.td(
+                                ui.input_text_area(
+                                    "forest1_desc",
+                                    None,
+                                    placeholder="Hotter, less humid, sunnier, wetter, less air pressure, Only one species (P-glauca)",
+                                    rows=2
+                                )
+                            )
+                        ),
+                        ui.tags.tr(
+                            ui.tags.td("1"),
+                            ui.tags.td("Forest 2"),
+                            ui.tags.td(
+                                ui.input_text_area(
+                                    "forest2_desc",
+                                    None,
+                                    placeholder="Colder, more humid, shady, drier, more air pressure, Mixed species",
+                                    rows=2
+                                )
+                            )
+                        ),
+                        ui.tags.tr(
+                            ui.tags.td("2"),
+                            ui.tags.td("Forest 3"),
+                            ui.tags.td(
+                                ui.input_text_area(
+                                    "forest3_desc",
+                                    None,
+                                    placeholder="Warmer, average humidity, sunnier, wetter, higher air pressure, Mixed species",
+                                    rows=2
+                                )
+                            )
+                        )
+                    )
+                )
+            )
 
 
         )
