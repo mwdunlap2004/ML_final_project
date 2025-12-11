@@ -1,13 +1,14 @@
 import pandas as pd
 import numpy as np
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.linear_model import LogisticRegression
-from sklearn.preprocessing import StandardScaler, OneHotEncoder
+from sklearn.preprocessing import StandardScaler, OneHotEncoder, OrdinalEncoder
 from sklearn.decomposition import PCA
+from sklearn.neighbors import KNeighborsClassifier
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
 from sklearn.impute import SimpleImputer
-from sklearn.metrics import classification_report
+from sklearn.metrics import classification_report, balanced_accuracy_score, confusion_matrix
 import matplotlib.pyplot as plt
 import seaborn as sns
 import plotly.express as px
@@ -58,9 +59,36 @@ available_categorical = [
     'soil_moist_cat'
 ]
 
+knn_available_num = [
+    'average_humidity', 
+    'avg_solar_irradiance', 
+    'avg_soil_water_content', 
+    'average_air_pressure',
+    'average_air_temperature',
+    'average_stem_radius',
+    'average_basal_area',
+]
+knn_available_cat = [
+    'freeze_flag', 
+    'species', 
+    'site'
+]
+
+
 # Defaults
 default_numeric = ['average_humidity', 'avg_solar_irradiance', 'avg_soil_water_content', 'average_air_pressure','average_stem_radius']
 default_categorical = ['freeze_flag', 'species', 'site', 'plot']
+
+knn_default_num = [
+    'average_air_temperature', 
+    'average_air_pressure',
+    'average_humidity',
+    'avg_solar_irradiance', 
+    'avg_soil_water_content',
+    'average_stem_radius'
+]
+knn_default_cat = ['species']
+
 
 
 # --- UI Definition ---
@@ -81,6 +109,7 @@ app_ui = ui.page_navbar(
             * **Multiple Regression**: A statistical modeling approach used to quantify how environmental variables influence stem radius amplitude, the size of the daily swelling–shrinking cycle of the tree stem. By modeling predictors like VPD, soil moisture, and solar exposure (and their interactions), the MLR helps identify which conditions most strongly increase or dampen these daily changes in stem size.
             * **Logistic Regression**: A predictive model used to classify growth. You can now customize the inputs and explore drivers for specific growth categories (e.g., "A Little Growth" vs "A Lot of Growth").
             * **Principal Component Analysis (PCA)**: A dimensionality reduction technique used to explore the structure of the data and identify natural clusters.
+            * **K-Nearest Neighbors (KNN)**: A supervised machine learning model used to classify growth categories.
             """
         )
     ),
@@ -186,7 +215,6 @@ app_ui = ui.page_navbar(
     #"""),
             ),
     ),
-
 
     # Tab 3: Logistic Regression Model
     ui.nav_panel(
@@ -354,6 +382,71 @@ app_ui = ui.page_navbar(
         # Section 3: Principal Component Regression
         ui.h3("Principal Component Regression", style="background-color: #f0f0f0; padding: 10px; margin-top: 30px; margin-bottom: 20px; border-left: 5px solid #007bff;"),
     ),
+
+
+    # Tab 5: KNN
+    ui.nav_panel(
+        "KNN",
+
+        # Sidebar: KNN Configuration
+        ui.layout_sidebar(
+            ui.sidebar(
+                ui.h5("KNN Configuration"),
+
+                ui.input_action_button("run_knn", "Run KNN Model"),
+
+                ui.p("Select the variables to include in the training model:"),
+                
+                ui.input_selectize(
+                    "knn_model_num", 
+                    "Numerical Variables:", 
+                    choices=knn_available_num, 
+                    selected=knn_default_num, 
+                    multiple=True
+                ),
+                
+                ui.input_selectize(
+                    "knn_model_cat", 
+                    "Categorical Variables:", 
+                    choices=knn_available_cat, 
+                    selected=knn_default_cat, 
+                    multiple=True
+                )
+            ),
+
+            # Top Card: K Selection plot
+            ui.card(
+                ui.card_header("Best K Value Selection"),
+                output_widget("knn_k_selection_plot")
+            ),
+
+            # Middle Cards
+            ui.card(
+                ui.card_header("Model Performance"),
+                
+                ui.layout_columns(
+                    ui.card(
+                        ui.card_header("Metrics"),
+                        ui.h6(ui.output_text("knn_accuracy_score")),
+                        ui.h6(ui.output_text("knn_b_accuracy_score")),
+                        output_widget("knn_confusion_matrix")
+                    ),
+                    ui.card(
+                        ui.card_header("Performance by Category"),
+                        output_widget("knn_performance_plot")
+                    ),
+                    col_widths=(6, 6)
+                ),
+            ),
+            
+
+            # Bottom Card: KNN Scatter Plot
+            ui.card(
+                ui.card_header("KNN Scatter Plot"),
+                output_widget("knn_scatter_plot", height="500px")
+            )
+        )
+    )
 )
 
 
@@ -517,6 +610,97 @@ def server(input, output, session):
         }
 
         
+    # -- D. KNN Logic --
+    @reactive.Calc
+    @reactive.event(input.run_knn)
+    def knn_results():
+        if df.empty: return {}
+
+        # vars and train/test
+        target_col = 'growth_category'
+        cat_cols = list(input.knn_model_cat())
+        num_cols = list(input.knn_model_num())
+        existing_numeric = [c for c in num_cols if c in df.columns]
+        existing_cat = [c for c in cat_cols if c in df.columns]
+        labels = list(df[target_col].unique())
+
+        y = df[target_col]
+        X = df[cat_cols + num_cols]
+
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y, test_size=0.2, random_state=42, stratify=y
+        )
+
+        # set up pipeline
+        preprocess = ColumnTransformer(
+            transformers=[
+                ('num - scaler', StandardScaler(), num_cols),
+                ('cat - ordinal', OrdinalEncoder(), cat_cols)
+            ]
+        )
+
+        pipe = Pipeline([
+            ('preprocessor', preprocess),
+            ('knn', KNeighborsClassifier(weights='distance'))
+        ])
+
+        # run grid search
+        param_grid = {'knn__n_neighbors': range(1, 100, 2)}
+
+        grid = GridSearchCV(pipe, param_grid, cv=5, scoring='balanced_accuracy', n_jobs=-1)
+        grid.fit(X_train, y_train)
+
+        # get best K
+        k_results_df = pd.DataFrame(grid.cv_results_)
+
+        k_results_df['k'] = k_results_df['param_knn__n_neighbors']
+        k_results_df['mean_score'] = k_results_df['mean_test_score']
+
+        best_k = grid.best_params_['knn__n_neighbors']
+        best_score = grid.best_score_
+
+        # final model
+        knn_final = Pipeline([
+            ('preprocessor', preprocess),
+            ('knn', KNeighborsClassifier(n_neighbors=best_k, weights='distance'))
+        ])
+
+        knn_final.fit(X_train, y_train)
+        y_pred = knn_final.predict(X_test)
+
+        # results        
+        report_dict = classification_report(y_test, y_pred, output_dict=True)
+
+        perf_data = {
+            'Class': labels,
+            'Precision': [report_dict[c]['precision'] for c in labels],
+            'Recall':    [report_dict[c]['recall'] for c in labels]
+        }
+        df_perf = pd.DataFrame(perf_data)
+        df_perf_melted = df_perf.melt(id_vars='Class', var_name='Metric', value_name='Score')
+
+        knn_accuracy = report_dict['accuracy']
+        knn_b_accuracy = balanced_accuracy_score(y_test, y_pred)
+
+        return {
+            "knn_accuracy_score": knn_accuracy,
+            "knn_b_accuracy_score": knn_b_accuracy,
+            "labels": labels,
+            "y_test": y_test,
+            "y_pred": y_pred,
+            "k_results_df": k_results_df,
+            # "model": knn_final,
+            # "report_dict": report_dict,
+            "best_k": best_k,
+            "best_score": best_score,
+            # "perf_data": perf_data,
+            # "df_perf": df_perf,
+            "df_perf_melted": df_perf_melted,
+        }
+
+
+
+
 
     # -- Outputs --
     @render.data_frame
@@ -826,6 +1010,169 @@ def server(input, output, session):
     
     # Return the summary as text
         return str(model.summary())
+    
+
+    # -- Output KNN --
+    @render.text
+    def knn_accuracy_score():
+        res = knn_results()
+        if not res: return "Accuracy: "
+        return f"Accuracy: {res['knn_accuracy_score']:.4f}"
+    
+    @render.text
+    def knn_b_accuracy_score():
+        res = knn_results()
+        if not res: return "Balanced Accuracy: "
+        return f"Balanced Accuracy: {res['knn_b_accuracy_score']:.4f}"
+    
+    @render_widget
+    def knn_k_selection_plot():
+        res = knn_results()
+        if not res: return go.Figure()
+
+        k_results_df = res['k_results_df']
+        best_k = res['best_k']
+        best_score = res['best_score']
+
+        fig = go.Figure()
+
+        # Main line
+        fig.add_trace(go.Scatter(
+            x=k_results_df['k'],
+            y=k_results_df['mean_score'],
+            mode='lines+markers',
+            name='Mean CV Balanced Accuracy',
+            hovertemplate="k=%{x}<br>Score=%{y:.4f}<extra></extra>"
+        ))
+
+        # Best k marker
+        fig.add_trace(go.Scatter(
+            x=[best_k],
+            y=[best_score],
+            mode='markers+text',
+            text=[f'Best k = {best_k}'],
+            textposition='top center',
+            marker=dict(size=10),
+            name='Best k',
+            hovertemplate="Best k=%{x}<br>Score=%{y:.4f}<extra></extra>"
+        ))
+
+        # Layout
+        fig.update_layout(
+            title=f"Cross-Validated Balanced Accuracy vs. K (best k = {best_k})",
+            xaxis_title="Number of Neighbors (k)",
+            yaxis_title="Mean CV Balanced Accuracy",
+            hovermode="x unified",
+            template="plotly_white",
+            yaxis=dict(title="Mean CV Balanced Accuracy"),
+            xaxis=dict(title="Number of Neighbors (k)")
+        )
+
+        return fig
+    
+    @render_widget
+    def knn_confusion_matrix():
+        res = knn_results()
+        if not res: return go.Figure()
+
+        y_test = res['y_test']
+        y_pred = res['y_pred']
+        labels = res['labels']
+        labels_2 = [str(i).split(" ")[0] for i in labels]
+
+        cm = confusion_matrix(y_test, y_pred, labels=labels)
+
+        # Text annotations
+        text = [[str(cm[i][j]) for j in range(len(labels))] for i in range(len(labels))]
+
+        fig = go.Figure(data=go.Heatmap(
+            z=cm,
+            x=labels_2,
+            y=labels_2,
+            colorscale="Blues",
+            showscale=True,
+            text=text,
+            texttemplate="%{text}",
+            hovertemplate="Actual: %{y}<br>Predicted: %{x}<br>Count: %{z}<extra></extra>"
+        ))
+
+        fig.update_layout(
+            title="Confusion Matrix",
+            xaxis=dict(title="Predicted Label"),
+            yaxis=dict(title="Actual Label", autorange="reversed"),
+            template="plotly_white"
+        )
+
+        return fig
+   
+    @render_widget
+    def knn_performance_plot():
+        res = knn_results()
+        if not res: return go.Figure()
+
+        df_perf_melted = res['df_perf_melted']
+
+        classes = df_perf_melted['Class'].unique()
+        classes_print = [str(i).split(" ")[0] for i in classes]
+        metrics = df_perf_melted['Metric'].unique()
+
+        # Optional color palette similar to seaborn's RdBu
+        colors = ['#67a9cf', '#ef8a62', '#2166ac', '#b2182b']
+
+        fig = go.Figure()
+
+        # Add a trace for each Metric (grouped bars)
+        for i, metric in enumerate(metrics):
+            df_metric = df_perf_melted[df_perf_melted['Metric'] == metric]
+
+            fig.add_trace(go.Bar(
+                x=df_metric['Class'],
+                y=df_metric['Score'],
+                name=metric,
+                marker=dict(
+                    color=colors[i % len(colors)],
+                    line=dict(color='black', width=1)  # black edges like seaborn
+                )
+            ))
+
+        # Add horizontal reference line at 0.33
+        fig.add_shape(
+            type="line",
+            x0=-0.5,
+            x1=len(classes)-0.5,
+            y0=0.33,
+            y1=0.33,
+            line=dict(color="black", width=2, dash="dash"),
+        )
+
+        fig.add_annotation(
+            x=len(classes)/2,
+            y=0.35,
+            text="Random Chance (0.33)",
+            showarrow=False,
+            font=dict(color="black")
+        )
+
+        fig.update_layout(
+            barmode='group',
+            title="Per-Class Performance Metrics",
+            xaxis_title="Class",
+            yaxis_title="Score",
+            template="plotly_white",
+            legend_title="Metric",
+        )
+
+        return fig
+    
+    @render_widget
+    def knn_scatter_plot():
+        res = knn_results()
+        if not res: return go.Figure()
+
+        return go.Figure()
+    
+
+
 
 
 app = App(app_ui, server)
