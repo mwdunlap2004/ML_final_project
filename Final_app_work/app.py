@@ -984,7 +984,7 @@ def server(input, output, session):
         
         # Fit the mixed effects model
         model = smf.mixedlm(
-            "change_stem_radius ~ VPD * avg_soil_water_content + avg_solar_irradiance + day_of_year",
+            "change_stem_radius ~ VPD * avg_soil_water_content + avg_solar_irradiance",
             data=df_filtered,
             groups=df_filtered["tree"]
         ).fit()
@@ -1003,7 +1003,7 @@ def server(input, output, session):
         # Fit the mixed effects model
         model = smf.ols(
             formula="""
-                change_stem_radius ~ VPD * avg_soil_water_content + avg_solar_irradiance + C(tree) + day_of_year
+                change_stem_radius ~ VPD * avg_soil_water_content + avg_solar_irradiance + C(tree)
             """,
             data=df_filtered
         ).fit()
