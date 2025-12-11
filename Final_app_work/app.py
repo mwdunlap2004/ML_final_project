@@ -572,7 +572,7 @@ app_ui = ui.page_navbar(
             ),
 
             ui.card(
-                ui.card_header("Forest Cluster Notes"),
+                ui.card_header("Forest Interpretation (3 Clusters)"),
 
                 ui.tags.table(
                     {"class": "table table-sm"},
@@ -603,7 +603,7 @@ app_ui = ui.page_navbar(
                                 ui.input_text_area(
                                     "forest2_desc",
                                     None,
-                                    placeholder="Colder, more humid, shady, drier, more air pressure, Mixed species",
+                                    placeholder="Colder, more humid, shadier, drier, more air pressure, Mixed species",
                                     rows=2
                                 )
                             )
