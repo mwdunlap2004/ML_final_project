@@ -718,6 +718,7 @@ def server(input, output, session):
             # "perf_data": perf_data,
             # "df_perf": df_perf,
             "df_perf_melted": df_perf_melted,
+            "df_plot": df_plot
         }
 
 
