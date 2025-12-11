@@ -259,6 +259,8 @@ app_ui = ui.page_navbar(
     # Tab 4: PCA Analysis
     ui.nav_panel(
         "PCA Analysis",
+        # Section 1: Overview
+        ui.h3("Overview", style="background-color: #f0f0f0; padding: 10px; margin-bottom: 20px; border-left: 5px solid #007bff;"),
         ui.layout_columns(
             ui.card(
                 ui.card_header("1. Correlation Matrix (Original Variables)"),
@@ -270,6 +272,8 @@ app_ui = ui.page_navbar(
             ),
             col_widths=(6, 6)
         ),
+        # Section 2: Exploring the Principal Components
+        ui.h3("Exploring the Principal Components", style="background-color: #f0f0f0; padding: 10px; margin-top: 30px; margin-bottom: 20px; border-left: 5px solid #007bff;"),
         ui.layout_columns(
             ui.card(
                 ui.card_header("PCA Plot Settings"),
@@ -288,7 +292,7 @@ app_ui = ui.page_navbar(
                 ui.input_radio_buttons(
                     "pca_color",
                     "Color By:",
-                    choices=["Growth", "Species"],
+                    choices=["Growth", "Species", "Site"],
                     selected="Growth"
                 )
             ),
@@ -297,6 +301,14 @@ app_ui = ui.page_navbar(
                 output_widget("pca_scatter_plot")
             ),
             col_widths=(3, 9)
+        ),
+        # Optional: Add correlation matrix with PCs
+        ui.layout_columns(
+            ui.card(
+                ui.card_header("4. Correlation Matrix (All Variables + PCs)"),
+                output_widget("corr_matrix_with_pcs_plot")
+            ),
+            col_widths=(12,)
         )
     ),
 )
@@ -420,11 +432,35 @@ def server(input, output, session):
         )
         
         if 'species' in df.columns: scores_df['species'] = df.loc[X_pca.index, 'species']
+        if 'site' in df.columns: scores_df['site'] = df.loc[X_pca.index, 'site']
         if 'growth_category' in df.columns: scores_df['Growth'] = df.loc[X_pca.index, 'growth_category']
         
+        # Create alldata_w_pcs with only numeric columns
+        # Get all numeric columns from original dataframe
+        numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+        
+        # Start with numeric data
+        alldata_w_pcs = df[numeric_cols].copy()
+        
+        # Add PC columns at the beginning, matching by index
+        pc_cols = [c for c in scores_df.columns if c.startswith('PC')]
+        for col in pc_cols:
+            alldata_w_pcs.loc[X_pca.index, col] = scores_df[col]
+        
+        # Reorder columns to put PCs first
+        pc_columns_present = [c for c in pc_cols if c in alldata_w_pcs.columns]
+        other_columns = [c for c in alldata_w_pcs.columns if c not in pc_columns_present]
+        alldata_w_pcs = alldata_w_pcs[pc_columns_present + other_columns]
+        
         return {
-            "X_pca": X_pca, "ev_df": ev_df, "scores_df": scores_df, "corr_matrix": X_pca.corr()
+            "X_pca": X_pca, 
+            "ev_df": ev_df, 
+            "scores_df": scores_df, 
+            "corr_matrix": X_pca.corr(),
+            "alldata_w_pcs": alldata_w_pcs
         }
+
+        
 
     # -- Outputs --
     @render.data_frame
@@ -562,6 +598,8 @@ def server(input, output, session):
             color_col = "Growth"
         elif color_choice == "Species" and "species" in sdf.columns:
             color_col = "species"
+        elif color_choice == "Site" and "site" in sdf.columns:
+            color_col = "site"
         else:
             # Fallback
             color_col = "Growth" if "Growth" in sdf.columns else ("species" if "species" in sdf.columns else None)
@@ -570,6 +608,8 @@ def server(input, output, session):
         hover_cols = []
         if "species" in sdf.columns:
             hover_cols.append("species")
+        if "site" in sdf.columns:
+            hover_cols.append("site")
         if "Growth" in sdf.columns:
             hover_cols.append("Growth")
         
@@ -589,6 +629,28 @@ def server(input, output, session):
         fig.update_layout(width=900, height=800)
         
         return fig
+
+    @render_widget
+    def corr_matrix_with_pcs_plot():
+        res = pca_results()
+        if not res: return go.Figure()
+        
+        # Get the dataframe with PCs included
+        alldata_w_pcs = res["alldata_w_pcs"]
+        
+        # Calculate correlation matrix (dropna to handle missing values)
+        corr_matrix_with_pcs = alldata_w_pcs.corr()
+        
+        return px.imshow(
+            corr_matrix_with_pcs, 
+            text_auto=True, 
+            color_continuous_scale="RdBu_r", 
+            aspect="auto", 
+            title="Correlation Matrix (Including Principal Components)",
+            height=800  # Make it taller since there are more variables
+        )
+
+        
 
 
     # Outputs Multiple Regression
