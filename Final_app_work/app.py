@@ -8,7 +8,7 @@ from sklearn.neighbors import KNeighborsClassifier
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
 from sklearn.impute import SimpleImputer
-from sklearn.metrics import classification_report, balanced_accuracy_score, confusion_matrix
+from sklearn.metrics import classification_report, balanced_accuracy_score, confusion_matrix, silhouette_score
 import matplotlib.pyplot as plt
 import seaborn as sns
 import plotly.express as px
@@ -16,6 +16,8 @@ from shiny import App, render, ui, reactive
 from shinywidgets import output_widget, render_widget  # Required for Plotly
 from datetime import date
 import plotly.graph_objects as go
+from sklearn.cluster import KMeans
+
 
 df = pd.read_csv('categorized_data.csv')
 df['Date'] = pd.to_datetime(df['Date']) 
@@ -89,6 +91,15 @@ knn_default_num = [
 ]
 knn_default_cat = ['species']
 
+kmeans_default_num = ["average_air_temperature", 
+                      "average_humidity", 
+                      "avg_solar_irradiance", 
+                      "avg_soil_water_content", 
+                      "average_air_pressure"]
+
+kmeans_default_cat = ["species", 
+                      "plot", 
+                      "site"]
 
 
 # --- UI Definition ---
@@ -110,9 +121,11 @@ app_ui = ui.page_navbar(
             * **Logistic Regression**: A predictive model used to classify growth. You can now customize the inputs and explore drivers for specific growth categories (e.g., "A Little Growth" vs "A Lot of Growth").
             * **Principal Component Analysis (PCA)**: A dimensionality reduction technique used to explore the structure of the data and identify natural clusters.
             * **K-Nearest Neighbors (KNN)**: A supervised machine learning model used to classify growth categories.
+            * **K-Means Clustering: An unsupervised model used to group similar data points together.
             """
         )
     ),
+
 
     # Tab 2: Data Explorer
     ui.nav_panel(
@@ -446,8 +459,81 @@ app_ui = ui.page_navbar(
                 output_widget("knn_scatter_plot", height="500px")
             )
         )
+    ),
+
+
+    # Tab 6: K-Means Model
+    ui.nav_panel(
+        "K-Means",
+
+        ui.layout_sidebar(
+            ui.sidebar(
+                ui.h5("K-Means Configuration"),
+
+                ui.input_action_button("run_kmeans", "Run K-Means Model"),
+
+                ui.p("Select the variables to include in clustering:"),
+
+                ui.input_selectize(
+                    "kmeans_model_num",
+                    "Numerical Variables:",
+                    choices=available_numeric,
+                    selected=kmeans_default_num,
+                    multiple=True
+                ),
+
+                ui.input_selectize(
+                    "kmeans_model_cat",
+                    "Categorical Variables:",
+                    choices=available_categorical,
+                    selected=kmeans_default_cat,
+                    multiple=True
+                ),
+
+                ui.hr(),
+                ui.input_slider(
+                    "kmeans_k",
+                    "Number of clusters (k):",
+                    min=2,
+                    max=10,
+                    value=3,
+                    step=1
+                )
+            ),
+
+            # Main panel
+            ui.card(
+                ui.card_header("Elbow Plot (Within-Cluster Sum of Squares)"),
+                output_widget("kmeans_elbow_plot")
+            ),
+
+            ui.card(
+                ui.card_header("Cluster Diagnostics"),
+                ui.layout_columns(
+                    ui.card(
+                        ui.card_header("Silhouette & Cluster Sizes"),
+                        ui.output_text_verbatim(
+                            "kmeans_summary",
+                            placeholder="Click 'Run K-Means Model' to fit clustering."
+                        )
+                    ),
+                    ui.card(
+                        ui.card_header("Change in Basal Area by Cluster"),
+                        output_widget("kmeans_boxplot")
+                    ),
+                    col_widths=(4, 8)
+                )
+            ),
+
+            ui.card(
+                ui.card_header("Cluster Scatter Plot"),
+                output_widget("kmeans_scatter_plot")
+            )
+        )
     )
 )
+
+
 
 
 # --- Server Logic ---
@@ -697,9 +783,80 @@ def server(input, output, session):
             # "df_perf": df_perf,
             "df_perf_melted": df_perf_melted,
         }
+    
+    # -- E. K-Means Logic --
+    @reactive.Calc
+    @reactive.event(input.run_kmeans)
+    def kmeans_results():
+        if df.empty:
+            return {}
 
+        num_cols = list(input.kmeans_model_num())
+        cat_cols = list(input.kmeans_model_cat())
 
+        existing_num = [c for c in num_cols if c in df.columns]
+        existing_cat = [c for c in cat_cols if c in df.columns]
 
+        if not existing_num and not existing_cat:
+            return {}
+
+        X = df[existing_num + existing_cat].dropna()
+        if X.empty:
+            return {}
+
+        preprocessor = ColumnTransformer(
+            transformers=[
+                ("num", StandardScaler(), existing_num),
+                ("cat", OneHotEncoder(handle_unknown="ignore"), existing_cat)
+            ]
+        )
+
+        pipe = Pipeline(
+            steps=[
+                ("preprocessor", preprocessor),
+                ("kmeans", KMeans(init="k-means++", n_init=10, random_state=6021))
+            ]
+        )
+
+        k_values = list(range(2, 11))
+        wcss = []
+
+        for k in k_values:
+            pipe.set_params(kmeans__n_clusters=k)
+            pipe.fit(X)
+            inertia = pipe["kmeans"].inertia_
+            wcss.append(inertia)
+
+        chosen_k = int(input.kmeans_k())
+        if chosen_k < min(k_values) or chosen_k > max(k_values):
+            chosen_k = 3  # safe fallback
+
+        pipe.set_params(kmeans__n_clusters=chosen_k)
+        pipe.fit(X)
+
+        labels = pipe["kmeans"].labels_
+
+        df_clusters = df.loc[X.index].copy()
+        df_clusters["cluster"] = labels
+
+        try:
+            X_transformed = pipe["preprocessor"].transform(X)
+            sil = float(silhouette_score(X_transformed, labels))
+        except Exception:
+            sil = None
+
+        cluster_sizes = df_clusters["cluster"].value_counts().sort_index()
+
+        return {
+            "chosen_k": chosen_k,
+            "wcss_k_values": k_values,
+            "wcss": wcss,
+            "silhouette": sil,
+            "cluster_sizes": cluster_sizes,
+            "df_clusters": df_clusters,
+            "numeric_cols": existing_num,
+            "categorical_cols": existing_cat,
+        }
 
 
     # -- Outputs --
@@ -1171,8 +1328,5 @@ def server(input, output, session):
 
         return go.Figure()
     
-
-
-
 
 app = App(app_ui, server)
