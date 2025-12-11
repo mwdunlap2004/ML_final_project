@@ -130,6 +130,7 @@ app_ui = ui.page_navbar(
             * **Logistic Regression**: A predictive model used to classify change. You can now customize the inputs and explore drivers for specific categories.
             * **Principal Component Analysis (PCA)**: A dimensionality reduction technique used to explore the structure of the data and identify natural clusters.
             * **K-Nearest Neighbors (KNN)**: A supervised machine learning model used to classify growth categories.
+            * **K-Means:** An unsupervised machine learning model used to identify natural clusters in the data.
             """
         )
     ),
@@ -555,7 +556,32 @@ app_ui = ui.page_navbar(
                 output_widget("kmeans_scatter_plot")
             )
         )
-    )
+    ),
+    # Tab 7: Conclusions
+    ui.nav_panel(
+        "Conclusions",
+        ui.card(
+            ui.card_header("Tree Model Conclusion"),
+            ui.markdown(
+                """
+(Insert Tree Model Conclusion Here)
+                """
+            ),
+        ),
+        ui.card(
+            ui.card_header("Logistic Regression"),
+            ui.markdown(
+                """
+To address the research question of distinguishing distinct physiological regimes, we utilized a multinomial logistic regression classifier to predict categories of **Basal Area Daily Amplitude**, a choice well-justified for isolating "Extreme Change" events from background noise.
+
+The model achieved an accuracy of **47.7%**, outperforming the random baseline (33%), though performance metrics indicate a stronger ability to identify stable periods (*"No/Little Change"* Recall: 0.61) compared to detecting high-amplitude events (*"Extreme Change"* Recall: 0.33).
+
+Despite this identification gap, the model successfully validated key biological assumptions, confirming that species identity and energy input are deterministic: *Picea mariana* and high **average solar irradiance** emerged as the strongest positive drivers of extreme daily amplitude, while *Picea glauca* served as a significant negative predictor associated with stability.
+                """
+            ),
+        ),
+        # Add more ui cards here
+    ) 
 )
 
 
@@ -1644,5 +1670,144 @@ def server(input, output, session):
         fig.update_layout(legend_title_text=legend_title_map.get(knn_scatter_color_by, knn_scatter_color_by))
 
         return fig
+
+    @render_widget
+    def kmeans_elbow_plot():
+        res = kmeans_results()
+        if not res:
+            return go.Figure()
+
+        k_values = res["wcss_k_values"]
+        wcss = res["wcss"]
+        chosen_k = res["chosen_k"]
+
+        fig = go.Figure()
+
+        # Main WCSS line
+        fig.add_trace(
+            go.Scatter(
+                x=k_values,
+                y=wcss,
+                mode="lines+markers",
+                name="WCSS / Inertia",
+                hovertemplate="k=%{x}<br>WCSS=%{y:.2f}<extra></extra>"
+            )
+        )
+
+        # Highlight chosen k
+        if chosen_k in k_values:
+            idx = k_values.index(chosen_k)
+            fig.add_trace(
+                go.Scatter(
+                    x=[chosen_k],
+                    y=[wcss[idx]],
+                    mode="markers+text",
+                    text=[f"k = {chosen_k}"],
+                    textposition="top center",
+                    marker=dict(size=10),
+                    name="Chosen k"
+                )
+            )
+
+        fig.update_layout(
+            title="Elbow Plot: WCSS vs Number of Clusters (k)",
+            xaxis_title="Number of Clusters (k)",
+            yaxis_title="WCSS / Inertia",
+            template="plotly_white",
+            hovermode="x unified"
+        )
+
+        return fig
+    
+    
+    @render.text
+    def kmeans_summary():
+        res = kmeans_results()
+        if not res:
+            return "Click 'Run K-Means Model' to fit clustering."
+
+        lines = []
+        k = res["chosen_k"]
+        sil = res["silhouette"]
+        sizes = res["cluster_sizes"]
+
+        if sil is not None:
+            lines.append(f"Silhouette score for k = {k}: {sil:.3f}")
+        else:
+            lines.append(f"Silhouette score for k = {k}: not available")
+
+        lines.append("")
+        lines.append("Cluster sizes:")
+        for cluster_id, n in sizes.items():
+            lines.append(f"  Cluster {cluster_id}: {n} observations")
+
+        return "\n".join(lines)
+
+    @render_widget
+    def kmeans_boxplot():
+        res = kmeans_results()
+        if not res:
+            return go.Figure()
+
+        df_clusters = res["df_clusters"]
+        if "change_basal_area" not in df_clusters.columns:
+            return go.Figure()
+
+        fig = go.Figure()
+
+        for cluster_id, group in df_clusters.groupby("cluster"):
+            fig.add_trace(
+                go.Box(
+                    y=group["change_basal_area"],
+                    name=f"Cluster {cluster_id}",
+                    boxpoints="outliers"
+                )
+            )
+
+        fig.update_layout(
+            title="Change in Basal Area by Cluster",
+            yaxis_title="change_basal_area",
+            xaxis_title="Cluster",
+            template="plotly_white"
+        )
+
+        return fig
+
+    @render_widget
+    def kmeans_scatter_plot():
+        res = kmeans_results()
+        if not res:
+            return go.Figure()
+
+        df_clusters = res["df_clusters"]
+        num_cols = res["numeric_cols"]
+
+        # Need at least two numeric variables to make a 2D scatter
+        if len(num_cols) < 2:
+            return go.Figure()
+
+        x_col, y_col = num_cols[0], num_cols[1]
+
+        # Try to add nice hover fields if present
+        hover_cols = []
+        for col in ["species", "site", "plot", "change_basal_area"]:
+            if col in df_clusters.columns:
+                hover_cols.append(col)
+
+        fig = px.scatter(
+            df_clusters,
+            x=x_col,
+            y=y_col,
+            color="cluster",
+            hover_data=hover_cols if hover_cols else None,
+            title=f"K-Means Clusters (k={res['chosen_k']}) in {x_col} vs {y_col} space",
+            opacity=0.7
+        )
+
+        fig.update_layout(template="plotly_white")
+
+        return fig
+
+
     
 app = App(app_ui, server)
