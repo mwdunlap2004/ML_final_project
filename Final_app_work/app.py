@@ -398,7 +398,7 @@ app_ui = ui.page_navbar(
             output_widget("pcr_pred_vs_actual")
         )
     ),
-)
+
 
     # Tab 5: KNN
     ui.nav_panel(
