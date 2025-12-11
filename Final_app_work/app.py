@@ -1,4 +1,4 @@
-import pandas as pd
+.import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression
@@ -353,8 +353,24 @@ app_ui = ui.page_navbar(
         ),
         # Section 3: Principal Component Regression
         ui.h3("Principal Component Regression", style="background-color: #f0f0f0; padding: 10px; margin-top: 30px; margin-bottom: 20px; border-left: 5px solid #007bff;"),
+        ui.layout_columns(
+            ui.card(
+                ui.card_header("PCR Metrics"),
+                ui.output_text_verbatim("pcr_metrics")
+            ),
+            ui.card(
+                ui.card_header("6. Model Performance vs Components"),
+                output_widget("pcr_metrics_plot")
+            ),
+            col_widths=(5, 7)
+        ),
+        ui.card(
+            ui.card_header("7. PCR Predicted vs Actual"),
+            output_widget("pcr_pred_vs_actual")
+        )
     ),
 )
+
 
 
 # --- Server Logic ---
@@ -787,7 +803,181 @@ def server(input, output, session):
         
         return fig
         
+        # Principal Component Regression Section
+    @reactive.Calc
+    def pcr_results():
+        res = pca_results()
+        if not res:
+            return None
+        
+        alldata_w_pcs = res["alldata_w_pcs"]
+        
+        # Check if target variable exists
+        if 'change_basal_area' not in df.columns:
+            return None
+        
+        # Get indices where we have both PCA scores and target variable
+        valid_indices = alldata_w_pcs.index.intersection(df.index)
+        
+        # Prepare features (all PC columns) - excluding change_basal_area
+        pc_cols = [c for c in alldata_w_pcs.columns if c.startswith('PC')]
+        if not pc_cols:
+            return None
+        
+        X = alldata_w_pcs.loc[valid_indices, pc_cols].dropna()
+        y = df.loc[X.index, 'change_basal_area'].dropna()
+        
+        # Align X and y
+        common_idx = X.index.intersection(y.index)
+        X = X.loc[common_idx]
+        y = y.loc[common_idx]
+        
+        if len(X) < 10:  # Need minimum samples
+            return None
+        
+        # Train-test split
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y, test_size=0.25, random_state=42
+        )
+        
+        # Try different numbers of components
+        results = []
+        for n_pcs in range(1, min(len(pc_cols) + 1, 10)):
+            pcr_pipe = Pipeline([
+                ("pca", PCA(n_components=n_pcs)),
+                ("linreg", LinearRegression())
+            ])
+            pcr_pipe.fit(X_train, y_train)
+            
+            train_r2 = pcr_pipe.score(X_train, y_train)
+            test_r2 = pcr_pipe.score(X_test, y_test)
+            
+            y_train_pred = pcr_pipe.predict(X_train)
+            y_test_pred = pcr_pipe.predict(X_test)
+            
+            train_rmse = np.sqrt(np.mean((y_train - y_train_pred)**2))
+            test_rmse = np.sqrt(np.mean((y_test - y_test_pred)**2))
+            
+            results.append({
+                'n_components': n_pcs,
+                'train_r2': train_r2,
+                'test_r2': test_r2,
+                'train_rmse': train_rmse,
+                'test_rmse': test_rmse
+            })
+        
+        results_df = pd.DataFrame(results)
+        
+        # Fit model with optimal number of components (based on test R²)
+        best_n = results_df.loc[results_df['test_r2'].idxmax(), 'n_components']
+        
+        pcr_pipe_best = Pipeline([
+            ("pca", PCA(n_components=int(best_n))),
+            ("linreg", LinearRegression())
+        ])
+        pcr_pipe_best.fit(X_train, y_train)
+        
+        y_test_pred_best = pcr_pipe_best.predict(X_test)
+        
+        return {
+            'results_df': results_df,
+            'best_n': int(best_n),
+            'X_test': X_test,
+            'y_test': y_test,
+            'y_test_pred': y_test_pred_best,
+            'best_model': pcr_pipe_best
+        }
 
+    # Add these outputs to your server function
+
+    @render.text
+    def pcr_metrics():
+        res = pcr_results()
+        if not res:
+            return "PCR analysis not available. Ensure 'change_basal_area' exists in your data."
+        
+        best_n = res['best_n']
+        results_df = res['results_df']
+        best_row = results_df[results_df['n_components'] == best_n].iloc[0]
+        
+        output = f"Principal Component Regression Results\n"
+        output += f"=" * 50 + "\n\n"
+        output += f"Optimal number of components: {best_n}\n\n"
+        output += f"Train R²  : {best_row['train_r2']:.4f}\n"
+        output += f"Test  R²  : {best_row['test_r2']:.4f}\n"
+        output += f"Train RMSE: {best_row['train_rmse']:.4f}\n"
+        output += f"Test  RMSE: {best_row['test_rmse']:.4f}\n"
+        
+        return output
+
+    @render_widget
+    def pcr_pred_vs_actual():
+        res = pcr_results()
+        if not res:
+            return go.Figure()
+        
+        y_test = res['y_test']
+        y_test_pred = res['y_test_pred']
+        
+        fig = px.scatter(
+            x=y_test, 
+            y=y_test_pred,
+            labels={'x': 'Actual Values', 'y': 'Predicted Values'},
+            title=f'PCR: Predicted vs Actual (Test Set, n_components={res["best_n"]})',
+            opacity=0.6
+        )
+        
+        # Add perfect prediction line
+        min_val = min(y_test.min(), y_test_pred.min())
+        max_val = max(y_test.max(), y_test_pred.max())
+        
+        fig.add_scatter(
+            x=[min_val, max_val],
+            y=[min_val, max_val],
+            mode='lines',
+            name='Perfect Prediction',
+            line=dict(color='red', dash='dash')
+        )
+        
+        fig.update_layout(width=700, height=600)
+        
+        return fig
+
+    @render_widget
+    def pcr_metrics_plot():
+        res = pcr_results()
+        if not res:
+            return go.Figure()
+        
+        results_df = res['results_df']
+        
+        fig = go.Figure()
+        
+        fig.add_trace(go.Scatter(
+            x=results_df['n_components'],
+            y=results_df['test_r2'],
+            mode='lines+markers',
+            name='Test R²',
+            line=dict(color='blue', width=2)
+        ))
+        
+        fig.add_trace(go.Scatter(
+            x=results_df['n_components'],
+            y=results_df['train_r2'],
+            mode='lines+markers',
+            name='Train R²',
+            line=dict(color='lightblue', width=2, dash='dash')
+        ))
+        
+        fig.update_layout(
+            title='PCR Performance vs Number of Components',
+            xaxis_title='Number of Principal Components',
+            yaxis_title='R² Score',
+            width=700,
+            height=500
+        )
+        
+        return fig
 
     # Outputs Multiple Regression
     @render.text
