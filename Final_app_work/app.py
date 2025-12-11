@@ -524,7 +524,39 @@ app_ui = ui.page_navbar(
                     max=10,
                     value=3,
                     step=1
-                )
+                ),
+                                ui.input_selectize(
+                    "knn_model_cat", 
+                    "Categorical Variables:", 
+                    choices=knn_available_cat, 
+                    selected=kmeans_default_cat, 
+                    multiple=True
+                ),
+
+                ui.hr(),
+                ui.h5("Forest cluster notes"),
+
+                ui.input_text_area(
+                    "forest1_desc",
+                    "Forest 1 (Cluster 0):",
+                    placeholder="Hotter, less humid, sunnier, wetter, less air pressure, Only one species (P-glauca)",
+                    rows=3
+                ),
+
+                ui.input_text_area(
+                    "forest2_desc",
+                    "Forest 2 (Cluster 1):",
+                    placeholder="Colder, more humid, shady, drier, more air pressure, Mixed species",
+                    rows=3
+                ),
+
+                ui.input_text_area(
+                    "forest3_desc",
+                    "Forest 3 (Cluster 2):",
+                    placeholder="Warmer, average humidity, sunnier, wetter, higher air pressure, Mixed species",
+                    rows=3
+                ),
+
             ),
 
             # Main panel
@@ -554,7 +586,14 @@ app_ui = ui.page_navbar(
             ui.card(
                 ui.card_header("Cluster Scatter Plot"),
                 output_widget("kmeans_scatter_plot")
-            )
+            ),
+
+            ui.card(
+                ui.card_header("Forest Cluster Descriptions"),
+                ui.output_table("kmeans_forest_table")
+            ),
+
+
         )
     ),
     # Tab 7: Conclusions
@@ -1807,6 +1846,23 @@ def server(input, output, session):
         fig.update_layout(template="plotly_white")
 
         return fig
+    
+        
+        
+    @render.table
+    def kmeans_forest_table():
+        # Simple table linking cluster IDs to your forest descriptions
+        df_forest = pd.DataFrame({
+            "Forest": ["Forest 1", "Forest 2", "Forest 3"],
+            "Cluster ID": [0, 1, 2],
+            "Description": [
+                input.forest1_desc(),
+                input.forest2_desc(),
+                input.forest3_desc()
+            ]
+        })
+        return df_forest
+
 
 
     
