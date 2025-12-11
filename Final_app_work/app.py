@@ -259,9 +259,20 @@ app_ui = ui.page_navbar(
     # Tab 4: PCA Analysis
     ui.nav_panel(
         "PCA Analysis",
-        ui.layout_sidebar(
-            ui.sidebar(
-                ui.h5("PCA Plot Settings"),
+        ui.layout_columns(
+            ui.card(
+                ui.card_header("1. Correlation Matrix (Original Variables)"),
+                output_widget("corr_matrix_plot")
+            ),
+            ui.card(
+                ui.card_header("2. Scree Plot (Variance Explained)"),
+                output_widget("scree_plot")
+            ),
+            col_widths=(6, 6)
+        ),
+        ui.layout_columns(
+            ui.card(
+                ui.card_header("PCA Plot Settings"),
                 ui.input_select(
                     "pca_x_axis",
                     "X-Axis:",
@@ -281,21 +292,11 @@ app_ui = ui.page_navbar(
                     selected="Growth"
                 )
             ),
-            ui.layout_columns(
-                ui.card(
-                    ui.card_header("1. Correlation Matrix (Original Variables)"),
-                    output_widget("corr_matrix_plot")
-                ),
-                ui.card(
-                    ui.card_header("2. Scree Plot (Variance Explained)"),
-                    output_widget("scree_plot")
-                ),
-                col_widths=(6, 6)
-            ),
             ui.card(
-                ui.card_header("3. PCA Scatter Plot (PC2 vs PC3)"),
+                ui.card_header("3. PCA Scatter Plot"),
                 output_widget("pca_scatter_plot")
-            )
+            ),
+            col_widths=(3, 9)
         )
     ),
 )
