@@ -263,11 +263,11 @@ app_ui = ui.page_navbar(
         ui.h3("Overview", style="background-color: #f0f0f0; padding: 10px; margin-bottom: 20px; border-left: 5px solid #007bff;"),
         ui.layout_columns(
             ui.card(
-                ui.card_header("1. Correlation Matrix (Original Variables)"),
+                ui.card_header("1. Feature Correlation Matrix"),
                 output_widget("corr_matrix_plot")
             ),
             ui.card(
-                ui.card_header("2. Scree Plot (Variance Explained)"),
+                ui.card_header("2. Scree Plot -- Variance reduced by adding further components"),
                 output_widget("scree_plot")
             ),
             col_widths=(6, 6)
@@ -456,6 +456,7 @@ def server(input, output, session):
         if not pca_cols: return None
 
         X_pca = df[pca_cols].dropna()
+        X_pca = X_pca.drop('change_basal_area')
         
         pca_pipe = Pipeline(steps=[("scaler", StandardScaler()), ("pca", PCA())])
         pca_pipe.fit(X_pca)
@@ -505,7 +506,7 @@ def server(input, output, session):
             "X_pca": X_pca, 
             "ev_df": ev_df, 
             "scores_df": scores_df, 
-            "corr_matrix": X_pca.corr(),
+            "corr_matrix": X_pca.drop('change_basal_area').corr(),
             "alldata_w_pcs": alldata_w_pcs,
             "loading_df": loading_df,
             "pca_cols": pca_cols
