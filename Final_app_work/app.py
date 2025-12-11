@@ -297,7 +297,8 @@ app_ui = ui.page_navbar(
                 output_widget("pca_scatter_plot")
             )
         )
-    )
+    ),
+)
 
 
 # --- Server Logic ---
