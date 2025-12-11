@@ -14,8 +14,7 @@ import plotly.express as px
 from shiny import App, render, ui, reactive
 from shinywidgets import output_widget, render_widget  # Required for Plotly
 from datetime import date
-
-
+import plotly.graph_objects as go
 
 df = pd.read_csv('categorized_data.csv')
 df['Date'] = pd.to_datetime(df['Date']) 
