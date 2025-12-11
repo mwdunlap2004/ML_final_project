@@ -580,7 +580,7 @@ app_ui = ui.page_navbar(
                         
             """
         ),
-    ),
+    )
     # You can add more ui.card() blocks here for your other models
 )
 
