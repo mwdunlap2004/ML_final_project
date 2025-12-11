@@ -451,12 +451,16 @@ def server(input, output, session):
         if df.empty: return None
         
         potential_cols = available_numeric
-        pca_cols = [c for c in potential_cols if c in df.columns and pd.api.types.is_numeric_dtype(df[c])]
+        pca_cols = [c for c in potential_cols
+            if (
+            c in df.columns
+            and pd.api.types.is_numeric_dtype(df[c])
+            and c != 'change_basal_area'
+            )]
         
         if not pca_cols: return None
 
         X_pca = df[pca_cols].dropna()
-        X_pca = X_pca.drop('change_basal_area')
         
         pca_pipe = Pipeline(steps=[("scaler", StandardScaler()), ("pca", PCA())])
         pca_pipe.fit(X_pca)
