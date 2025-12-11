@@ -555,7 +555,7 @@ app_ui = ui.page_navbar(
                 output_widget("kmeans_scatter_plot")
             )
         )
-    )
+    ),
     # Tab 7: Conclusions
     ui.nav_panel(
         "Conclusions",
