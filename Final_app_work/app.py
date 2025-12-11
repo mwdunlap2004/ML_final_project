@@ -25,6 +25,16 @@ max_date = df['Date'].max().date()
 
 df['Date'] = df['Date'].dt.date
 
+# VDP Calc
+T = df["average_air_temperature"]
+RH = df["average_humidity"]
+
+svp = 0.6108 * np.exp((17.27 * T) / (T + 237.3))
+df["VPD"] = svp * (1 - RH / 100)
+
+df['day_of_year'] = pd.to_datetime(df['Date']).dt.dayofyear
+
+
 # --- Feature Sets ---
 available_numeric = [
     'average_humidity', 
@@ -69,6 +79,7 @@ app_ui = ui.page_navbar(
             Our primary objective is to determine which environmental factors—such as soil moisture or solar intensity—are the strongest predictors of robust plant growth.
 
             ### 2. Methodologies
+            * **Multiple Regression**: A statistical modeling approach used to quantify how environmental variables influence stem radius amplitude, the size of the daily swelling–shrinking cycle of the tree stem. By modeling predictors like VPD, soil moisture, and solar exposure (and their interactions), the MLR helps identify which conditions most strongly increase or dampen these daily changes in stem size.
             * **Logistic Regression**: A predictive model used to classify growth. You can now customize the inputs and explore drivers for specific growth categories (e.g., "A Little Growth" vs "A Lot of Growth").
             * **Principal Component Analysis (PCA)**: A dimensionality reduction technique used to explore the structure of the data and identify natural clusters.
             """
@@ -101,6 +112,82 @@ app_ui = ui.page_navbar(
             )
         )
     ),
+
+    # Tab 3: Multiple Regression
+    ui.nav_panel(
+        "Multiple Regression",
+
+        ui.layout_sidebar(
+        ui.sidebar(
+            ui.h5("Interpretation"),
+            ui.markdown("""
+            - **Response variable:** `change_stem_radius` (the size of the daily swelling–shrinking cycle of the tree stem)
+            - **Higher VPD** → more daytime shrinkage  
+            - **More soil water** → slightly larger amplitude  
+            - **Interaction negative** → wet soil buffers VPD stress  
+            - **VPD formula:** `VPD = SVP * (1 - RH/100)`  where SVP itself is an exponential function of temperature.
+            """)
+        ),
+
+        # First row: card that used to be the sidebar
+        ui.layout_columns(
+            ui.card(
+                ui.card_header("Multiple Regression (OLS & Mixed Effects)"),
+                ui.p(
+                    """
+                    This section shows how environmental factors, particularly 
+                    Vapor Pressure Deficit (VPD), soil volumetric water content (VWC), 
+                    and solar irradiance, influence daily radial stem changes 
+                    in white spruce at Arctic treeline. Tree dummies in OLS and random intercepts in mixed effects are used to account for the repeated daily measurements per tree, ensuring that baseline differences between trees don’t bias the estimated effects of environmental variables
+                    Understanding how VPD, soil water, and solar irradiance affect daily stem changes helps reveal how Arctic treeline trees respond to environmental stress, which can inform predictions about tree growth and ecosystem resilience under climate change.
+                    """
+                ),
+                # ui.hr(),
+                # ui.h5("Models Displayed"),
+                #ui.tags.ul(
+                    #ui.tags.li("1. Mixed Linear Model (random intercept for tree)"),
+                    #ui.tags.li("2. OLS with dummy variable for each tree"),
+                #),
+            ),
+            col_widths=(12,)
+        ),
+
+        # Second row: model output cards
+        ui.layout_columns(
+            ui.card(
+                ui.card_header("Mixed Effects Model Output"),
+                ui.input_action_button("run_mixedlm", "Run Mixed Effects Model"),
+                ui.output_text_verbatim(
+                    "mixedlm_output",
+                    placeholder="Click the button to run mixed effects model"
+                )
+            ),
+            ui.card(
+                ui.card_header("OLS Output"),
+                ui.input_action_button("run_ols", "Run OLS Model"),
+                ui.output_text_verbatim(
+                    "ols_output",
+                    placeholder="Click the button to run OLS model"
+                )
+            ),
+            col_widths=(6, 6)
+        ),
+        # ui.hr(),
+        # ui.h5("Interpretation"),
+        #ui.markdown("""
+        #- **Response Variable:** `change_stem_radius` (daily amplitude),
+                    
+        #- **Higher VPD**→ more daytime shrinkage → larger daily amplitude."),
+                    
+        #- **More soil water** → trees can swell more → slightly larger amplitude."),
+                    
+        #- **Interaction negative** → wet soil buffers VPD stress."),
+        
+        #- **VPD is calculated as VPD** = SVP * (1 - RH/100), where SVP = 0.6108 * exp(17.27 * T / (T + 237.3))"),
+    #"""),
+            ),
+    ),
+
 
     # Tab 3: Logistic Regression Model
     ui.nav_panel(
@@ -439,5 +526,44 @@ def server(input, output, session):
         y_col = "PC3" if "PC3" in sdf.columns else "PC2"
         color_col = "Growth" if "Growth" in sdf.columns else ("species" if "species" in sdf.columns else None)
         return px.scatter(sdf, x=x_col, y=y_col, color=color_col, hover_data=sdf.columns, title=f"PCA Scatter: {x_col} vs {y_col}", opacity=0.7, height=600)
+
+    # Outputs Multiple Regression
+    @render.text
+    @reactive.event(input.run_mixedlm)  # only runs when button clicked
+    def mixedlm_output():
+        import statsmodels.formula.api as smf
+        
+        # Filter for P glauca
+        df_filtered = df[df["species"] == "P glauca"]
+        
+        # Fit the mixed effects model
+        model = smf.mixedlm(
+            "change_stem_radius ~ VPD * avg_soil_water_content + avg_solar_irradiance + day_of_year",
+            data=df_filtered,
+            groups=df_filtered["tree"]
+        ).fit()
+    
+    # Return the summary as text
+        return str(model.summary())
+    
+    @render.text
+    @reactive.event(input.run_ols)  # only runs when button clicked
+    def ols_output():
+        import statsmodels.formula.api as smf
+        
+        # Filter for P glauca
+        df_filtered = df[df["species"] == "P glauca"]
+        
+        # Fit the mixed effects model
+        model = smf.ols(
+            formula="""
+                change_stem_radius ~ VPD * avg_soil_water_content + avg_solar_irradiance + C(tree) + day_of_year
+            """,
+            data=df_filtered
+        ).fit()
+    
+    # Return the summary as text
+        return str(model.summary())
+
 
 app = App(app_ui, server)
