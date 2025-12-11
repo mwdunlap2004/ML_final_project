@@ -16,7 +16,7 @@ from shiny import App, render, ui, reactive
 from shinywidgets import output_widget, render_widget  # Required for Plotly
 from datetime import date
 import plotly.graph_objects as go
-from sklearn.linear_model import LogisticRegression, LinearRegression
+
 
 df = pd.read_csv('categorized_data.csv')
 df['Date'] = pd.to_datetime(df['Date']) 
@@ -398,7 +398,7 @@ app_ui = ui.page_navbar(
             output_widget("pcr_pred_vs_actual")
         )
     ),
-
+)
 
     # Tab 5: KNN
     ui.nav_panel(
