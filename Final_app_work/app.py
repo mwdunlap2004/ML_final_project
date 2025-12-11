@@ -260,24 +260,45 @@ app_ui = ui.page_navbar(
     # Tab 4: PCA Analysis
     ui.nav_panel(
         "PCA Analysis",
-        ui.layout_columns(
-            ui.card(
-                ui.card_header("1. Correlation Matrix (Original Variables)"),
-                output_widget("corr_matrix_plot")
+        ui.layout_sidebar(
+            ui.sidebar(
+                ui.h5("PCA Plot Settings"),
+                ui.input_select(
+                    "pca_x_axis",
+                    "X-Axis:",
+                    choices=["PC1", "PC2", "PC3", "PC4", "PC5", "PC6", "PC7", "PC8", "PC9"],
+                    selected="PC2"
+                ),
+                ui.input_select(
+                    "pca_y_axis",
+                    "Y-Axis:",
+                    choices=["PC1", "PC2", "PC3", "PC4", "PC5", "PC6", "PC7", "PC8", "PC9"],
+                    selected="PC4"
+                ),
+                ui.input_radio_buttons(
+                    "pca_color",
+                    "Color By:",
+                    choices=["Growth", "Species"],
+                    selected="Growth"
+                )
+            ),
+            ui.layout_columns(
+                ui.card(
+                    ui.card_header("1. Correlation Matrix (Original Variables)"),
+                    output_widget("corr_matrix_plot")
+                ),
+                ui.card(
+                    ui.card_header("2. Scree Plot (Variance Explained)"),
+                    output_widget("scree_plot")
+                ),
+                col_widths=(6, 6)
             ),
             ui.card(
-                ui.card_header("2. Scree Plot (Variance Explained)"),
-                output_widget("scree_plot")
-            ),
-            col_widths=(6, 6)
-        ),
-        ui.card(
-            ui.card_header("3. PCA Scatter Plot (PC2 vs PC3)"),
-            output_widget("pca_scatter_plot")
+                ui.card_header("3. PCA Scatter Plot (PC2 vs PC3)"),
+                output_widget("pca_scatter_plot")
+            )
         )
-    ),
-    title="Growth Prediction Dashboard"
-)
+    )
 
 
 # --- Server Logic ---
@@ -521,23 +542,36 @@ def server(input, output, session):
     def pca_scatter_plot():
         res = pca_results()
         if not res: return go.Figure()
-    
+        
         sdf = res["scores_df"]
-    
-        # Check which PCs are available
-        x_col = "PC2" if "PC2" in sdf.columns else "PC1"
-        y_col = "PC4" if "PC4" in sdf.columns else ("PC3" if "PC3" in sdf.columns else "PC2")
-    
-        # Determine color column
-        color_col = "Growth" if "Growth" in sdf.columns else ("species" if "species" in sdf.columns else None)
-    
+        
+        # Get user-selected PCs
+        x_col = input.pca_x_axis()
+        y_col = input.pca_y_axis()
+        
+        # Check if selected PCs exist in the data
+        if x_col not in sdf.columns:
+            x_col = "PC1"
+        if y_col not in sdf.columns:
+            y_col = "PC2"
+        
+        # Determine color column based on user selection
+        color_choice = input.pca_color()
+        if color_choice == "Growth" and "Growth" in sdf.columns:
+            color_col = "Growth"
+        elif color_choice == "Species" and "species" in sdf.columns:
+            color_col = "species"
+        else:
+            # Fallback
+            color_col = "Growth" if "Growth" in sdf.columns else ("species" if "species" in sdf.columns else None)
+        
         # Prepare hover data - only include columns that exist
         hover_cols = []
         if "species" in sdf.columns:
             hover_cols.append("species")
         if "Growth" in sdf.columns:
             hover_cols.append("Growth")
-    
+        
         # Create the scatter plot with marginal distributions
         fig = px.scatter(
             sdf,
@@ -550,9 +584,9 @@ def server(input, output, session):
             hover_data=hover_cols if hover_cols else None,
             opacity=0.7
         )
-    
+        
         fig.update_layout(width=900, height=800)
-    
+        
         return fig
 
 
