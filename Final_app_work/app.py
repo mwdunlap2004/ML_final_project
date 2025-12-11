@@ -87,8 +87,8 @@ kmeans_default_cat = ["species",
                       "site"]
 
 # Defaults
-default_numeric = ['average_humidity', 'avg_solar_irradiance', 'avg_soil_water_content', 'average_air_pressure','average_stem_radius']
-default_categorical = ['freeze_flag', 'species', 'site', 'plot']
+default_numeric = ['average_humidity', 'avg_solar_irradiance', 'avg_soil_water_content', 'average_air_pressure']
+default_categorical = ['freeze_flag', 'species']
 
 knn_default_num = [
     'average_air_temperature', 
@@ -564,7 +564,9 @@ app_ui = ui.page_navbar(
             ui.card_header("Tree Model Conclusion"),
             ui.markdown(
                 """
-(Insert Tree Model Conclusion Here)
+This project focuses on modeling the impact that environmental factors have on Tree Stem Amplitude (how much a tree grows/shrinks in a day). Tree Amplitude primarily comes from trees absorbing or losing water. As the climate changes (and the arctic is particularly susceptible to warming
+
+It is unknown how trees will react. Our model hopes to provide clarity to what factors impact tree amplitude and therefore how climate change can impact trees.
                 """
             ),
         ),
