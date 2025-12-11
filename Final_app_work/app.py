@@ -76,6 +76,15 @@ knn_available_cat = [
     'site'
 ]
 
+kmeans_default_num = ["average_air_temperature", 
+                      "average_humidity", 
+                      "avg_solar_irradiance", 
+                      "avg_soil_water_content", 
+                      "average_air_pressure"]
+
+kmeans_default_cat = ["species", 
+                      "plot", 
+                      "site"]
 
 # Defaults
 default_numeric = ['average_humidity', 'avg_solar_irradiance', 'avg_soil_water_content', 'average_air_pressure','average_stem_radius']
@@ -471,6 +480,76 @@ app_ui = ui.page_navbar(
             ui.card(
                 ui.card_header("KNN Scatter Plot"),
                 output_widget("knn_scatter_plot", height="500px")
+            )
+        )
+    ),
+
+    # Tab 6: K-Means Model
+    ui.nav_panel(
+        "K-Means",
+
+        ui.layout_sidebar(
+            ui.sidebar(
+                ui.h5("K-Means Configuration"),
+
+                ui.input_action_button("run_kmeans", "Run K-Means Model"),
+
+                ui.p("Select the variables to include in clustering:"),
+
+                ui.input_selectize(
+                    "kmeans_model_num",
+                    "Numerical Variables:",
+                    choices=available_numeric,
+                    selected=kmeans_default_num,
+                    multiple=True
+                ),
+
+                ui.input_selectize(
+                    "kmeans_model_cat",
+                    "Categorical Variables:",
+                    choices=available_categorical,
+                    selected=kmeans_default_cat,
+                    multiple=True
+                ),
+
+                ui.hr(),
+                ui.input_slider(
+                    "kmeans_k",
+                    "Number of clusters (k):",
+                    min=2,
+                    max=10,
+                    value=3,
+                    step=1
+                )
+            ),
+
+            # Main panel
+            ui.card(
+                ui.card_header("Elbow Plot (Within-Cluster Sum of Squares)"),
+                output_widget("kmeans_elbow_plot")
+            ),
+
+            ui.card(
+                ui.card_header("Cluster Diagnostics"),
+                ui.layout_columns(
+                    ui.card(
+                        ui.card_header("Silhouette & Cluster Sizes"),
+                        ui.output_text_verbatim(
+                            "kmeans_summary",
+                            placeholder="Click 'Run K-Means Model' to fit clustering."
+                        )
+                    ),
+                    ui.card(
+                        ui.card_header("Change in Basal Area by Cluster"),
+                        output_widget("kmeans_boxplot")
+                    ),
+                    col_widths=(4, 8)
+                )
+            ),
+
+            ui.card(
+                ui.card_header("Cluster Scatter Plot"),
+                output_widget("kmeans_scatter_plot")
             )
         )
     )
@@ -899,6 +978,81 @@ def server(input, output, session):
         
         plt.tight_layout()
         return fig
+    
+    # -- E. K-Means Logic --
+    @reactive.Calc
+    @reactive.event(input.run_kmeans)
+    def kmeans_results():
+        if df.empty:
+            return {}
+
+        num_cols = list(input.kmeans_model_num())
+        cat_cols = list(input.kmeans_model_cat())
+
+        existing_num = [c for c in num_cols if c in df.columns]
+        existing_cat = [c for c in cat_cols if c in df.columns]
+
+        if not existing_num and not existing_cat:
+            return {}
+
+        X = df[existing_num + existing_cat].dropna()
+        if X.empty:
+            return {}
+
+        preprocessor = ColumnTransformer(
+            transformers=[
+                ("num", StandardScaler(), existing_num),
+                ("cat", OneHotEncoder(handle_unknown="ignore"), existing_cat)
+            ]
+        )
+
+        pipe = Pipeline(
+            steps=[
+                ("preprocessor", preprocessor),
+                ("kmeans", KMeans(init="k-means++", n_init=10, random_state=6021))
+            ]
+        )
+
+        k_values = list(range(2, 11))
+        wcss = []
+
+        for k in k_values:
+            pipe.set_params(kmeans__n_clusters=k)
+            pipe.fit(X)
+            inertia = pipe["kmeans"].inertia_
+            wcss.append(inertia)
+
+        chosen_k = int(input.kmeans_k())
+        if chosen_k < min(k_values) or chosen_k > max(k_values):
+            chosen_k = 3  # safe fallback
+
+        pipe.set_params(kmeans__n_clusters=chosen_k)
+        pipe.fit(X)
+
+        labels = pipe["kmeans"].labels_
+
+        df_clusters = df.loc[X.index].copy()
+        df_clusters["cluster"] = labels
+
+        try:
+            X_transformed = pipe["preprocessor"].transform(X)
+            sil = float(silhouette_score(X_transformed, labels))
+        except Exception:
+            sil = None
+
+        cluster_sizes = df_clusters["cluster"].value_counts().sort_index()
+
+        return {
+            "chosen_k": chosen_k,
+            "wcss_k_values": k_values,
+            "wcss": wcss,
+            "silhouette": sil,
+            "cluster_sizes": cluster_sizes,
+            "df_clusters": df_clusters,
+            "numeric_cols": existing_num,
+            "categorical_cols": existing_cat,
+        }
+
 
     # -- Outputs: PCA --
     @render_widget
