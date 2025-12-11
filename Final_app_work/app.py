@@ -431,13 +431,41 @@ def server(input, output, session):
         return px.line(res["ev_df"], x="PC", y="ExplainedVariance", markers=True, title="Scree Plot")
 
     @render_widget
-    def pca_scatter_plot():
-        res = pca_results()
-        if not res: return go.Figure()
-        sdf = res["scores_df"]
-        x_col = "PC2" if "PC2" in sdf.columns else "PC1"
-        y_col = "PC3" if "PC3" in sdf.columns else "PC2"
-        color_col = "Growth" if "Growth" in sdf.columns else ("species" if "species" in sdf.columns else None)
-        return px.scatter(sdf, x=x_col, y=y_col, color=color_col, hover_data=sdf.columns, title=f"PCA Scatter: {x_col} vs {y_col}", opacity=0.7, height=600)
+def pca_scatter_plot():
+    res = pca_results()
+    if not res: return go.Figure()
+    
+    sdf = res["scores_df"]
+    
+    # Check which PCs are available
+    x_col = "PC2" if "PC2" in sdf.columns else "PC1"
+    y_col = "PC4" if "PC4" in sdf.columns else ("PC3" if "PC3" in sdf.columns else "PC2")
+    
+    # Determine color column
+    color_col = "Growth" if "Growth" in sdf.columns else ("species" if "species" in sdf.columns else None)
+    
+    # Prepare hover data - only include columns that exist
+    hover_cols = []
+    if "species" in sdf.columns:
+        hover_cols.append("species")
+    if "Growth" in sdf.columns:
+        hover_cols.append("Growth")
+    
+    # Create the scatter plot with marginal distributions
+    fig = px.scatter(
+        sdf,
+        x=x_col,
+        y=y_col,
+        color=color_col,
+        marginal_x="histogram",
+        marginal_y="histogram",
+        title=f"PCA Biplot with Marginal Distributions ({x_col} vs {y_col})",
+        hover_data=hover_cols if hover_cols else None,
+        opacity=0.7
+    )
+    
+    fig.update_layout(width=900, height=800)
+    
+    return fig
 
 app = App(app_ui, server)
