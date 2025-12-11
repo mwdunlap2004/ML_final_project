@@ -559,33 +559,10 @@ app_ui = ui.page_navbar(
     # Tab 7: Conclusions
     ui.nav_panel(
         "Conclusions",
-        ui.layout_sidebar(
-            ui.sidebar(
-                ui.h5(""), # Sidebar Header Placeholder
-                ui.p(""),  # Sidebar Text Placeholder
-                ui.hr(),
-                ui.h5(""), # Secondary Header Placeholder
-                ui.p("")
-            ),
+        ui.markdown(
+            """
             
-            # Main Conclusion Card
-            ui.card(
-                ui.card_header(""), # Card Header Placeholder
-                ui.markdown("")     # Main Markdown/Text Placeholder
-            ),
-            
-            # Two columns for additional points or future work
-            ui.layout_columns(
-                ui.card(
-                    ui.card_header(""),
-                    ui.p("")
-                ),
-                ui.card(
-                    ui.card_header(""),
-                    ui.p("")
-                ),
-                col_widths=(6, 6)
-            )
+            """
         )
     )
 )
