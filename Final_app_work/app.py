@@ -302,14 +302,57 @@ app_ui = ui.page_navbar(
             ),
             col_widths=(3, 9)
         ),
-        # Optional: Add correlation matrix with PCs
+        # Correlation matrix with PCs and explanation
         ui.layout_columns(
             ui.card(
                 ui.card_header("4. Correlation Matrix (All Variables + PCs)"),
                 output_widget("corr_matrix_with_pcs_plot")
             ),
-            col_widths=(12,)
-        )
+            ui.card(
+                ui.card_header("Understanding This Matrix"),
+                ui.div(
+                    ui.p(
+                        "We use this larger correlation matrix to show how each principal component relates to the original features. This, alongside the loadings plot below, allows us to obtain a better understanding of what these components represent.",
+                        style="text-align: center; padding: 40px; font-size: 16px; line-height: 1.6;"
+                    ),
+                    style="display: flex; align-items: center; justify-content: center; height: 100%;"
+                )
+            ),
+            col_widths=(7, 5)
+        ),
+        # Loadings plot
+        ui.layout_columns(
+            ui.card(
+                ui.card_header("Loadings Plot Settings"),
+                ui.input_select(
+                    "loadings_x_axis",
+                    "X-Axis:",
+                    choices=["PC1", "PC2", "PC3", "PC4", "PC5", "PC6", "PC7", "PC8", "PC9"],
+                    selected="PC1"
+                ),
+                ui.input_select(
+                    "loadings_y_axis",
+                    "Y-Axis:",
+                    choices=["PC1", "PC2", "PC3", "PC4", "PC5", "PC6", "PC7", "PC8", "PC9"],
+                    selected="PC2"
+                ),
+                ui.input_numeric(
+                    "arrow_scale",
+                    "Arrow Scale:",
+                    value=3,
+                    min=0.5,
+                    max=10,
+                    step=0.5
+                )
+            ),
+            ui.card(
+                ui.card_header("5. PCA Loadings Biplot"),
+                output_widget("loadings_plot")
+            ),
+            col_widths=(3, 9)
+        ),
+        # Section 3: Principal Component Regression
+        ui.h3("Principal Component Regression", style="background-color: #f0f0f0; padding: 10px; margin-top: 30px; margin-bottom: 20px; border-left: 5px solid #007bff;"),
     ),
 )
 
@@ -436,10 +479,7 @@ def server(input, output, session):
         if 'growth_category' in df.columns: scores_df['Growth'] = df.loc[X_pca.index, 'growth_category']
         
         # Create alldata_w_pcs with only numeric columns
-        # Get all numeric columns from original dataframe
         numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
-        
-        # Start with numeric data
         alldata_w_pcs = df[numeric_cols].copy()
         
         # Add PC columns at the beginning, matching by index
@@ -452,12 +492,23 @@ def server(input, output, session):
         other_columns = [c for c in alldata_w_pcs.columns if c not in pc_columns_present]
         alldata_w_pcs = alldata_w_pcs[pc_columns_present + other_columns]
         
+        # Calculate loadings
+        n_components = pca_model.components_.shape[0]
+        loadings = pca_model.components_.T
+        loading_df = pd.DataFrame(
+            loadings,
+            index=pca_cols,
+            columns=[f"PC{i+1}_loading" for i in range(n_components)]
+        )
+        
         return {
             "X_pca": X_pca, 
             "ev_df": ev_df, 
             "scores_df": scores_df, 
             "corr_matrix": X_pca.corr(),
-            "alldata_w_pcs": alldata_w_pcs
+            "alldata_w_pcs": alldata_w_pcs,
+            "loading_df": loading_df,
+            "pca_cols": pca_cols
         }
 
         
@@ -650,6 +701,86 @@ def server(input, output, session):
             height=800  # Make it taller since there are more variables
         )
 
+    @render_widget
+    def loadings_plot():
+        res = pca_results()
+        if not res: return go.Figure()
+        
+        loading_df = res["loading_df"]
+        scores_df = res["scores_df"]
+        
+        # Get user-selected PCs
+        x_pc = input.loadings_x_axis()
+        y_pc = input.loadings_y_axis()
+        
+        x_loading_col = f"{x_pc}_loading"
+        y_loading_col = f"{y_pc}_loading"
+        
+        # Check if selected loadings exist
+        if x_loading_col not in loading_df.columns:
+            x_loading_col = "PC1_loading"
+            x_pc = "PC1"
+        if y_loading_col not in loading_df.columns:
+            y_loading_col = "PC2_loading"
+            y_pc = "PC2"
+        
+        arrow_scale = input.arrow_scale()
+        
+        fig = go.Figure()
+        
+        # Add scatter points for observations
+        if x_pc in scores_df.columns and y_pc in scores_df.columns:
+            hover_text = []
+            for idx in scores_df.index:
+                parts = []
+                if 'species' in scores_df.columns:
+                    parts.append(f"Species: {scores_df.loc[idx, 'species']}")
+                if 'site' in scores_df.columns:
+                    parts.append(f"Site: {scores_df.loc[idx, 'site']}")
+                if 'Growth' in scores_df.columns:
+                    parts.append(f"Growth: {scores_df.loc[idx, 'Growth']}")
+                hover_text.append("<br>".join(parts))
+            
+            fig.add_trace(go.Scatter(
+                x=scores_df[x_pc],
+                y=scores_df[y_pc],
+                mode="markers",
+                marker=dict(size=5, opacity=0.5, color='lightblue'),
+                name="Observations",
+                hovertext=hover_text,
+                hoverinfo="text"
+            ))
+        
+        # Add loading arrows
+        for var_name, row in loading_df.iterrows():
+            x_arrow = row[x_loading_col] * arrow_scale
+            y_arrow = row[y_loading_col] * arrow_scale
+            
+            fig.add_trace(go.Scatter(
+                x=[0, x_arrow],
+                y=[0, y_arrow],
+                mode="lines+markers+text",
+                text=[None, var_name],
+                textposition="top center",
+                line=dict(color='red', width=2),
+                marker=dict(size=8, color='red'),
+                showlegend=False,
+                hoverinfo='text',
+                hovertext=f"{var_name}<br>{x_pc}: {row[x_loading_col]:.3f}<br>{y_pc}: {row[y_loading_col]:.3f}"
+            ))
+        
+        fig.update_layout(
+            title=f"PCA Loadings Biplot: {x_pc} vs {y_pc}",
+            xaxis_title=f"{x_pc} Loadings",
+            yaxis_title=f"{y_pc} Loadings",
+            xaxis=dict(zeroline=True, zerolinewidth=2, zerolinecolor='black'),
+            yaxis=dict(zeroline=True, zerolinewidth=2, zerolinecolor='black'),
+            width=900,
+            height=800,
+            hovermode='closest'
+        )
+        
+        return fig
         
 
 
