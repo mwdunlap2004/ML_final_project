@@ -561,7 +561,9 @@ app_ui = ui.page_navbar(
         "Conclusions",
         ui.markdown(
             """
-            
+            # Logistic Regression
+
+To address the research question of distinguishing distinct physiological regimes, we utilized a multinomial logistic regression classifier to predict categories of Basal Area Daily Amplitude, a choice well-justified for isolating "Extreme Change" events from background noise. The model achieved an accuracy of 47.7%, outperforming the random baseline (33%), though performance metrics indicate a stronger ability to identify stable periods ("No/Little Change" Recall: 0.61) compared to detecting high-amplitude events ("Extreme Change" Recall: 0.33). Despite this identification gap, the model successfully validated key biological assumptions, confirming that species identity and energy input are deterministic: Picea mariana and high average solar irradiance emerged as the strongest positive drivers of extreme daily amplitude, while Picea glauca served as a significant negative predictor associated with stability.
             """
         )
     )
