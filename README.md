@@ -26,7 +26,9 @@ The repository is organized as follows:
     * `adding_cats.ipynb` (Main Repo)
 * **Application Source:**
     * Located in the `Final App` folder.
-
+* **Combined.ipynb:**
+    * Located in the `Final App` folder
+    * Is a combination of all of our code, separate from the app
 ---
 
 ## Workflow
@@ -36,7 +38,6 @@ To replicate our process, execute the files in the following order:
 1.  `Data Engineering.R`
 2.  `Adding Cats.ipynb`
 3.  `Final_App` Source Code
-4.  Publish to Posit Cloud
 
 ---
 

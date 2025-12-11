@@ -87,8 +87,8 @@ kmeans_default_cat = ["species",
                       "site"]
 
 # Defaults
-default_numeric = ['average_humidity', 'avg_solar_irradiance', 'avg_soil_water_content', 'average_air_pressure','average_stem_radius']
-default_categorical = ['freeze_flag', 'species', 'site', 'plot']
+default_numeric = ['average_humidity', 'avg_solar_irradiance', 'avg_soil_water_content', 'average_air_pressure']
+default_categorical = ['freeze_flag', 'species']
 
 knn_default_num = [
     'average_air_temperature', 
@@ -130,7 +130,7 @@ app_ui = ui.page_navbar(
             * **Logistic Regression**: A predictive model used to classify change. You can now customize the inputs and explore drivers for specific categories.
             * **Principal Component Analysis (PCA)**: A dimensionality reduction technique used to explore the structure of the data and identify natural clusters.
             * **K-Nearest Neighbors (KNN)**: A supervised machine learning model used to classify growth categories.
-            * **K-Means:** An unsupervised machine learning model used to identify natural clusters in the data.
+            * **K-Means Clustering:** An unsupervised machine learning model used to identify natural clusters in the data.
             """
         )
     ),
@@ -539,7 +539,39 @@ app_ui = ui.page_navbar(
                     max=10,
                     value=3,
                     step=1
-                )
+                ),
+                ui.input_selectize(
+                    "kmeans_model_cat", 
+                    "Categorical Variables:", 
+                    choices=knn_available_cat, 
+                    selected=kmeans_default_cat, 
+                    multiple=True
+                ),
+
+                ui.hr(),
+                ui.h5("Forest cluster notes"),
+
+                ui.input_text_area(
+                    "forest1_desc",
+                    "Forest 1 (Cluster 0):",
+                    placeholder="Hotter, less humid, sunnier, wetter, less air pressure, Only one species (P-glauca)",
+                    rows=3
+                ),
+
+                ui.input_text_area(
+                    "forest2_desc",
+                    "Forest 2 (Cluster 1):",
+                    placeholder="Colder, more humid, shady, drier, more air pressure, Mixed species",
+                    rows=3
+                ),
+
+                ui.input_text_area(
+                    "forest3_desc",
+                    "Forest 3 (Cluster 2):",
+                    placeholder="Warmer, average humidity, sunnier, wetter, higher air pressure, Mixed species",
+                    rows=3
+                ),
+
             ),
 
             # Main panel
@@ -569,7 +601,14 @@ app_ui = ui.page_navbar(
             ui.card(
                 ui.card_header("Cluster Scatter Plot"),
                 output_widget("kmeans_scatter_plot")
-            )
+            ),
+
+            ui.card(
+                ui.card_header("Forest Cluster Descriptions"),
+                ui.output_table("kmeans_forest_table")
+            ),
+
+
         )
     ),
     # Tab 7: Conclusions
@@ -579,7 +618,9 @@ app_ui = ui.page_navbar(
             ui.card_header("Tree Model Conclusion"),
             ui.markdown(
                 """
-(Insert Tree Model Conclusion Here)
+This project focuses on modeling the impact that environmental factors have on Tree Stem Amplitude (how much a tree grows/shrinks in a day). Tree Amplitude primarily comes from trees absorbing or losing water. As the climate changes (and the arctic is particularly susceptible to warming
+
+It is unknown how trees will react. Our model hopes to provide clarity to what factors impact tree amplitude and therefore how climate change can impact trees.
                 """
             ),
         ),
@@ -1903,6 +1944,23 @@ def server(input, output, session):
         fig.update_layout(template="plotly_white")
 
         return fig
+    
+        
+        
+    @render.table
+    def kmeans_forest_table():
+        # Simple table linking cluster IDs to your forest descriptions
+        df_forest = pd.DataFrame({
+            "Forest": ["Forest 1", "Forest 2", "Forest 3"],
+            "Cluster ID": [0, 1, 2],
+            "Description": [
+                input.forest1_desc(),
+                input.forest2_desc(),
+                input.forest3_desc()
+            ]
+        })
+        return df_forest
+
 
 
     
