@@ -567,7 +567,7 @@ app_ui = ui.page_navbar(
                             ui.tags.tbody(
                     # Forest 1
                     ui.tags.tr(
-                        ui.tags.td("Forest 1"),
+                        ui.tags.td("1"),
                         ui.tags.td(
                             ui.input_text(
                                 "forest1_temp",
@@ -628,7 +628,7 @@ app_ui = ui.page_navbar(
 
                     # Forest 2
                     ui.tags.tr(
-                        ui.tags.td("Forest 2"),
+                        ui.tags.td("2"),
                         ui.tags.td(
                             ui.input_text(
                                 "forest2_temp",
@@ -689,7 +689,7 @@ app_ui = ui.page_navbar(
 
                     # Forest 3
                     ui.tags.tr(
-                        ui.tags.td("Forest 3"),
+                        ui.tags.td("3"),
                         ui.tags.td(
                             ui.input_text(
                                 "forest3_temp",
