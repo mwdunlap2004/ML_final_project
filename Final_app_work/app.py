@@ -542,10 +542,224 @@ app_ui = ui.page_navbar(
                 ),
             ),
 
-            # Main panel
             ui.card(
                 ui.card_header("Elbow Plot (Within-Cluster Sum of Squares)"),
                 output_widget("kmeans_elbow_plot")
+            ),
+
+            ui.card(
+                ui.card_header("Forests Interpretation (3 Clusters)"),
+                ui.tags.table({"class": "table table-sm"}),
+                ui.tags.thead(
+                    ui.tags.tr(
+                        ui.tags.th("Variable"),
+                        ui.tags.th("Forest 1"),
+                        ui.tags.th("Forest 2"),
+                        ui.tags.th("Forest 3")
+                    )
+                ),
+                ui.tags.tbody(
+                    # temperature
+                    ui.tags.tr(
+                        ui.tags.td("Temperature"),
+                        ui.tags.td(
+                            ui.input_text(
+                                "forest1_temp",
+                                None,
+                                placeholder="Hotter"
+                            )
+                        ),
+                        ui.tags.td(
+                            ui.input_text(
+                                "forest2_temp",
+                                None,
+                                placeholder="Colder"
+                            )
+                        ),
+                        ui.tags.td(
+                            ui.input_text(
+                                "forest3_temp",
+                                None,
+                                placeholder="Warmer"
+                            )
+                        )
+                    ),
+                    # # humidity
+                    ui.tags.tr(
+                        ui.tags.td("Humidity"),
+                        ui.tags.td(
+                            ui.input_text(
+                                "forest1_humidity",
+                                None,
+                                placeholder="Lower"
+                            )
+                        ),
+                        ui.tags.td(
+                            ui.input_text(
+                                "forest2_humidity",
+                                None,
+                                placeholder="Higher"
+                            )
+                        ),
+                        ui.tags.td(
+                            ui.input_text(
+                                "forest3_humidity",
+                                None,
+                                placeholder="Average"
+                            )
+                        )
+                    ),
+                    # solar
+                    ui.tags.tr(
+                        ui.tags.td("Solar"),
+                        ui.tags.td(
+                            ui.input_text(
+                                "forest1_solar",
+                                None,
+                                placeholder="Sunnier"
+                            )
+                        ),
+                        ui.tags.td(
+                            ui.input_text(
+                                "forest2_solar",
+                                None,
+                                placeholder="Shadier"
+                            )
+                        ),
+                        ui.tags.td(
+                            ui.input_text(
+                                "forest3_solar",
+                                None,
+                                placeholder="Sunnier"
+                            )
+                        )
+                    ),
+                    # soil water
+                    ui.tags.tr(
+                        ui.tags.td("Soil Water"),
+                        ui.tags.td(
+                            ui.input_text(
+                                "forest1_soil",
+                                None,
+                                placeholder="Wetter"
+                            )
+                        ),
+                        ui.tags.td(
+                            ui.input_text(
+                                "forest2_soil",
+                                None,
+                                placeholder="Drier"
+                            )
+                        ),
+                        ui.tags.td(
+                            ui.input_text(
+                                "forest3_soil",
+                                None,
+                                placeholder="Wetter"
+                            )
+                        )
+                    ),
+                    # pressure
+                    ui.tags.tr(
+                        ui.tags.td("Pressure"),
+                        ui.tags.td(
+                            ui.input_text(
+                                "forest1_pressure",
+                                None,
+                                placeholder="Lower"
+                            )
+                        ),
+                        ui.tags.td(
+                            ui.input_text(
+                                "forest2_pressure",
+                                None,
+                                placeholder="Higher"
+                            )
+                        ),
+                        ui.tags.td(
+                            ui.input_text(
+                                "forest3_pressure",
+                                None,
+                                placeholder="Higher"
+                            )
+                        )
+                    ),
+                    # species
+                    ui.tags.tr(
+                        ui.tags.td("Species"),
+                        ui.tags.td(
+                            ui.input_text(
+                                "forest1_species",
+                                None,
+                                placeholder="Only P-glauca"
+                            )
+                        ),
+                        ui.tags.td(
+                            ui.input_text(
+                                "forest2_species",
+                                None,
+                                placeholder="Mixed species"
+                            )
+                        ),
+                        ui.tags.td(
+                            ui.input_text(
+                                "forest3_species",
+                                None,
+                                placeholder="Mixed species"
+                            )
+                        )
+                    ),
+                    # site
+                    ui.tags.tr(
+                        ui.tags.td("Site"),
+                        ui.tags.td(
+                            ui.input_text(
+                                "forest1_site",
+                                None,
+                                placeholder="Alaska"
+                            )
+                        ),
+                        ui.tags.td(
+                            ui.input_text(
+                                "forest2_site",
+                                None,
+                                placeholder="Mixed Sites"
+                            )
+                        ),
+                        ui.tags.td(
+                            ui.input_text(
+                                "forest3_site",
+                                None,
+                                placeholder="Northwest Territories"
+                            )
+                        )
+                    ),
+                    # amplitude
+                    ui.tags.tr(
+                        ui.tags.td("Amplitude"),
+                        ui.tags.td(
+                            ui.input_text(
+                                "forest1_amplitude",
+                                None,
+                                placeholder="Extreme"
+                            )
+                        ),
+                        ui.tags.td(
+                            ui.input_text(
+                                "forest2_amplitude",
+                                None,
+                                placeholder="Moderate"
+                            )
+                        ),
+                        ui.tags.td(
+                            ui.input_text(
+                                "forest3_amplitude",
+                                None,
+                                placeholder="Moderate"
+                            )
+                        )
+                    )
+                )
             ),
 
             ui.card(
@@ -569,221 +783,14 @@ app_ui = ui.page_navbar(
             ui.card(
                 ui.card_header("Cluster Scatter Plot"),
                 output_widget("kmeans_scatter_plot")
-            ),
-
-            ui.card(
-                ui.card_header("Forests Interpretation (3 Clusters)"),
-                ui.tags.table({"class": "table table-sm"},
-        
-                ui.tags.thead(
-                    ui.tags.tr(
-                        ui.tags.th("Forest"),
-                        ui.tags.th("Cluster ID"),
-                        ui.tags.th("Temp"),
-                        ui.tags.th("Humidity"),
-                        ui.tags.th("Solar"),
-                        ui.tags.th("Soil Water"),
-                        ui.tags.th("Pressure"),
-                        ui.tags.th("Species"),
-                        ui.tags.th("Site"),
-                        ui.tags.th("Amplitude")
-                    )
-                ),
-                ui.tags.tbody(
-                    # forest 1
-                    ui.tags.tr(
-                        ui.tags.td("Forest 1"),
-                        ui.tags.td("0"),
-                        ui.tags.td(
-                            ui.input_text(
-                                "forest1_temp",
-                                None,
-                                placeholder="Hotter"
-                            )
-                        ),
-                        ui.tags.td(
-                            ui.input_text(
-                                "forest1_humidity",
-                                None,
-                                placeholder="Lower"
-                            )
-                        ),
-                        ui.tags.td(
-                            ui.input_text(
-                                "forest1_solar",
-                                None,
-                                placeholder="Sunnier"
-                            )
-                        ),
-                        ui.tags.td(
-                            ui.input_text(
-                                "forest1_soil",
-                                None,
-                                placeholder="Wetter"
-                            )
-                        ),
-                        ui.tags.td(
-                            ui.input_text(
-                                "forest1_pressure",
-                                None,
-                                placeholder="Lower"
-                            )
-                        ),
-                        ui.tags.td(
-                            ui.input_text(
-                                "forest1_species",
-                                None,
-                                placeholder="Only P-glauca"
-                            )
-                        ),
-                        ui.tags.td(
-                            ui.input_text(
-                                "forest1_site",
-                                None,
-                                placeholder="Alaska"
-                            )
-                        ),
-                        ui.tags.td(
-                            ui.input_text(
-                                "forest1_amplitude",
-                                None,
-                                placeholder="Extreme"
-                            )
-                        )
-                    ),
-
-                    # forest 2
-                    ui.tags.tr(
-                        ui.tags.td("Forest 2"),
-                        ui.tags.td("1"),
-                        ui.tags.td(
-                            ui.input_text(
-                                "forest2_temp",
-                                None,
-                                placeholder="Colder"
-                            )
-                        ),
-                        ui.tags.td(
-                            ui.input_text(
-                                "forest2_humidity",
-                                None,
-                                placeholder="Higher"
-                            )
-                        ),
-                        ui.tags.td(
-                            ui.input_text(
-                                "forest2_solar",
-                                None,
-                                placeholder="Shadier"
-                            )
-                        ),
-                        ui.tags.td(
-                            ui.input_text(
-                                "forest2_soil",
-                                None,
-                                placeholder="Drier"
-                            )
-                        ),
-                        ui.tags.td(
-                            ui.input_text(
-                                "forest2_pressure",
-                                None,
-                                placeholder="Higher"
-                            )
-                        ),
-                        ui.tags.td(
-                            ui.input_text(
-                                "forest2_species",
-                                None,
-                                placeholder="Mixed species"
-                            )
-                        ),
-                        ui.tags.td(
-                            ui.input_text(
-                                "forest2_site",
-                                None,
-                                placeholder="Mixed Sites"
-                            )
-                        ),
-                        ui.tags.td(
-                            ui.input_text(
-                                "forest2_amplitude",
-                                None,
-                                placeholder="Moderate"
-                            )
-                        )
-                    ),
-
-                    # forest 3
-                    ui.tags.tr(
-                        ui.tags.td("Forest 3"),
-                        ui.tags.td("2"),
-                        ui.tags.td(
-                            ui.input_text(
-                                "forest3_temp",
-                                None,
-                                placeholder="Warmer"
-                            )
-                        ),
-                        ui.tags.td(
-                            ui.input_text(
-                                "forest3_humidity",
-                                None,
-                                placeholder="Average"
-                            )
-                        ),
-                        ui.tags.td(
-                            ui.input_text(
-                                "forest3_solar",
-                                None,
-                                placeholder="Sunnier"
-                            )
-                        ),
-                        ui.tags.td(
-                            ui.input_text(
-                                "forest3_soil",
-                                None,
-                                placeholder="Wetter"
-                            )
-                        ),
-                        ui.tags.td(
-                            ui.input_text(
-                                "forest3_pressure",
-                                None,
-                                placeholder="Higher"
-                            )
-                        ),
-                        ui.tags.td(
-                            ui.input_text(
-                                "forest3_species",
-                                None,
-                                placeholder="Mixed species"
-                            )
-                        ),
-                        ui.tags.td(
-                            ui.input_text(
-                                "forest3_site",
-                                None,
-                                placeholder="Northwest Territories"
-                            )
-                        ),
-                        ui.tags.td(
-                            ui.input_text(
-                                "forest3_amplitude",
-                                None,
-                                placeholder="Moderate"
-                            )
-                        )
             )
         )
     )
-)
+    )
 
 
-        )
-    ),
     # Tab 7: Conclusions
-    ui.nav_panel(
+ui.nav_panel(
         "Conclusions",
         ui.card(
             ui.card_header("Tree Model Conclusion"),
@@ -821,7 +828,7 @@ When we take these components and apply them to a Principal Component Regression
         ),
         # Add more ui cards here
     ) 
-)
+
 
 
 # --- Server Logic ---
