@@ -19,7 +19,7 @@ import plotly.graph_objects as go
 from sklearn.cluster import KMeans
 
 
-df = pd.read_csv('categorized_data.csv')
+df = pd.read_csv('Final_app_work/categorized_data.csv')
 df['Date'] = pd.to_datetime(df['Date']) 
 
 min_date = df['Date'].min().date()
@@ -457,6 +457,24 @@ app_ui = ui.page_navbar(
     ui.nav_panel(
         "KNN",
 
+        # KNN Explanation
+        ui.card(
+            ui.card_header("K-Nearest Neighbors (KNN) Classification"),
+            ui.markdown(
+                """
+                To explore the effects of different environmental conditions on tree amplitude, we used a K-Nearest Neighbors (KNN) algorithm to classify trees into different daily basal area change categories. The KNN model predicts the change category of new data points based the most common category of its nearest neighbors.
+
+                The preselected variables are the ones that yielded the best model performance. The graphs/figures show the following:
+                - The best K value based on the model performance on the test set at various K values
+                - The model performance metrics on the test set for the chosen ideal K value via:
+                    - Confusion Matrix
+                    - Precision and Recall by category
+                - Scatter plot of test set based on PCA values with overlays for true value, predicted value, and correct/incorrect classification
+                - Partial effects plot which shows how the model's predictions vary with respect to 2 chosen features while holding all other features at their mean
+                """
+            )
+        ),
+
         # Sidebar: KNN Configuration
         ui.layout_sidebar(
             ui.sidebar(
@@ -516,6 +534,36 @@ app_ui = ui.page_navbar(
                                   {"target": "True Class", "pred": "Predicted Class", "correct": "Correct / Incorrect"},
                                   selected="target"),
                 output_widget("knn_scatter_plot", height="500px")
+            ),
+
+            # Next to Bottom Card:
+            ui.card(
+                ui.card_header("Partial Effects Plots"),
+                # Row 1: Feature selectors
+                ui.row(
+                    ui.column(6,
+                        ui.input_selectize(
+                            "featA", 
+                            "Feature A:", 
+                            choices=knn_default_num, 
+                            selected="average_temperature", 
+                            multiple=False
+                        ),
+                    ),
+                    ui.column(6,
+                        ui.input_selectize(
+                            "featB", 
+                            "Feature B:", 
+                            choices=knn_default_num, 
+                            selected="avg_soil_water_content", 
+                            multiple=False
+                        ),
+                    )
+                ),
+                # Row 2: Plotly heatmap
+                ui.row(
+                    output_widget("knn_pep_heatmap")
+                )
             )
         )
     ),
@@ -883,6 +931,8 @@ This is particularly compelling as several studies have found a strong relations
 To approach the question of predicting **Basal Area Daily Amplitude** from a set of environmental factors, we applied a K-Nearest Neighbors (KNN) classifier. Our model achieved an accuracy of **66%**, outperforming the random baseline (33%) by a factor of 2. The model had good predictive performance across all 3 categories, with a "Moderate Change" preforming the worst yet still having a precision of 57.7% and a recall of 52.2%.
 
 This was found using the following features: *Air Pressure*, *Humidity*, *Temperature*, *Solar Radiation*, *Soil Moisture*, *Stem Radius*, and *Species*. The addition of variables measuring time of year (month), site location, latitude, and longitude (among others) did not improve performance. Thus, a fairly accurate predictive model can be built using only environmental features while effectively controlling in part for species in tree size. While this model cannot show exactly how influential each variable is, it does provide a useful baseline for further analysis and shows evidence that tree daily amplitude is strongly influenced by environmental factors.
+
+However, we can Look at some partial effects plots :heatmaps of 2 numeric features with an overlay for predicted change holding everything else at its mean. We see some of what is happening in the data, but there is a lot of uncertainty. for humidity and soil water content, the most extreme changes are predicted when the conditions are either low humid and dry soil or high humidity and wet soil. For soil water content and temperature, we also see that the soil water content has a large deciding effect at lower temperatures but not at higher ones where many values are predicted to be extreme. For many of the plots with solar irradiance, there is a middle band on sunlight where the prediction is largely moderate with extreme and no/little change occurring at high or low solar irradiance.
                 """
             ),
             # Add more ui cards here
@@ -1078,8 +1128,8 @@ def server(input, output, session):
         cat_cols = [c for c in cat_cols if c in df.columns]
         labels = list(df[target_col].unique())
 
-        y = df[target_col]
-        X = df[cat_cols + num_cols]
+        y = df.copy()[target_col]
+        X = df.copy()[cat_cols + num_cols]
 
         X_train, X_test, y_train, y_test = train_test_split(
             X, y, test_size=0.2, random_state=42, stratify=y
@@ -1099,7 +1149,7 @@ def server(input, output, session):
         ])
 
         # run grid search
-        param_grid = {'knn__n_neighbors': range(1, 100, 2)}
+        param_grid = {'knn__n_neighbors': range(1, 50, 2)}
 
         grid = GridSearchCV(pipe, param_grid, cv=5, scoring='balanced_accuracy', n_jobs=-1)
         grid.fit(X_train, y_train)
@@ -1162,7 +1212,7 @@ def server(input, output, session):
             "k_results_df": k_results_df,
             "num_cols": num_cols,
             "cat_cols": cat_cols,
-            # "model": knn_final,
+            "model": knn_final,
             # "report_dict": report_dict,
             "best_k": best_k,
             "best_score": best_score,
@@ -1812,6 +1862,7 @@ def server(input, output, session):
         return str(model.summary())
     
 
+
     # -- Output KNN --
     @render.text
     def knn_accuracy_score():
@@ -2023,6 +2074,102 @@ def server(input, output, session):
         return fig
 
     @render_widget
+    def knn_pep_heatmap():
+        res = knn_results()
+        if not res:
+            return go.Figure()
+        
+        X = df.copy()
+        featA = str(input.featA())
+        featB = str(input.featB())
+        n_points = 50
+        model = res['model']
+
+        # 1. Create grid vectors
+        X[featA] = pd.to_numeric(X[featA], errors='coerce')
+        X[featB] = pd.to_numeric(X[featB], errors='coerce')
+        a_vals = np.linspace(X[featA].min(), X[featA].max(), n_points)
+        b_vals = np.linspace(X[featB].min(), X[featB].max(), n_points)
+        A, B = np.meshgrid(a_vals, b_vals)
+
+        # 2. Base row with numeric means
+        base = X.mean(numeric_only=True)
+
+        # 3. Vectorized grid creation
+        num_features = len(base)
+        n_total = n_points * n_points
+
+        # Repeat base row for all points
+        X_grid = pd.DataFrame(np.tile(base.values, (n_total, 1)), columns=base.index)
+
+        # Broadcast the two selected features across the grid
+        X_grid[featA] = A.ravel()
+        X_grid[featB] = B.ravel()
+
+        # 4. Fill categorical columns with mode
+        cat_cols = ['species', 'freeze_flag', 'site']
+        for col in cat_cols:
+            X_grid[col] = X[col].mode()[0]
+
+        # 5. Predict
+        y_pred = model.predict(X_grid)
+        replace_dict = {'No/Little Change': 0, 'Moderate Change': 1, 'Extreme Change': 2}
+        y_pred_num = np.array([replace_dict[c] for c in y_pred]) 
+
+        # 6. Reshape predictions to grid
+        Z = y_pred_num.reshape(n_points, n_points)
+
+        # 7. create graph
+        fig = go.Figure(data=go.Heatmap(
+            x=A[0],
+            y=B[:, 0],
+            z=Z.T,  # transpose so orientation is correct
+            colorscale='Viridis',
+            colorbar=dict(
+                title="Predicted Change",
+                tickvals=[0, 1, 2],               # numeric positions
+                ticktext=['No/Little', 'Moderate', 'Extreme']  # labels
+            ),
+            zmin=Z.min(),
+            zmax=Z.max()
+        ))
+
+        fig.update_layout(
+            title_text=f"KNN Partial Dependence: {featA} vs {featB}",
+            title_x=0.5,
+            title_font=dict(size=16),
+            xaxis_title=featA,
+            yaxis_title=featB,
+            autosize=True
+        )
+
+        fig.add_annotation(
+            x=0.5,
+            y=1.12,          # above the top of the plot
+            xref="paper",
+            yref="paper",
+            text="Holding all other features constant at their means",
+            showarrow=False,
+            font=dict(size=12, color="gray"),
+            xanchor="center",
+            yanchor="bottom"  # anchor the bottom of text at y=1.12
+        )
+
+        return fig
+
+    @reactive.Effect
+    def update_feature_dropdowns():
+        features = list(input.knn_model_num()) # list of selected features
+        if features:
+            ui.update_selectize("featA", choices=features, selected=features[0])
+            ui.update_selectize("featB", choices=features, selected=features[1] if len(features)>1 else features[0])
+
+
+
+
+
+    # -- K-Means --
+    @render_widget
     def kmeans_elbow_plot():
         res = kmeans_results()
         if not res:
@@ -2069,7 +2216,6 @@ def server(input, output, session):
         )
 
         return fig
-    
     
     @render.text
     def kmeans_summary():
