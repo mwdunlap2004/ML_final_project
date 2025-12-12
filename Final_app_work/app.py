@@ -127,7 +127,7 @@ app_ui = ui.page_navbar(
 
             ### 2. Methodologies
             * **Multiple Regression**: A statistical modeling approach used to quantify how environmental variables influence stem radius amplitude, the size of the daily swelling–shrinking cycle of the tree stem. By modeling predictors like VPD, soil moisture, and solar exposure (and their interactions), the MLR helps identify which conditions most strongly increase or dampen these daily changes in stem size.
-            * **Logistic Regression**: A predictive model used to classify change. You can now customize the inputs and explore drivers for specific categories.
+            * **Logistic Regression**: A predictive model used to classify change.
             * **Principal Component Analysis (PCA)**: A dimensionality reduction technique used to explore the structure of the data and identify natural clusters.
             * **K-Nearest Neighbors (KNN)**: A supervised machine learning model used to classify growth categories.
             * **K-Means Clustering:** An unsupervised machine learning model used to identify natural clusters in the data.
