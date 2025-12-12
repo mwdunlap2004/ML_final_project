@@ -807,6 +807,18 @@ Despite this identification gap, the model successfully validated key biological
                 """
             ),
         ),
+        ui.card(
+            ui.card_header("Principal Component Analysis and Regression"),
+            ui.markdown(
+                """
+To condense the number of features in our analysis and potentially simplify the model, we performed principal component analysis. This technique led to the identification of 6 principal components that explain roughly 95% of the variance in the data, allowing us to shrink the number of features from 8 to 6.
+
+While some features are more difficult to interpret (particularly the later ones), we do gain valuable insight from some of the components. For example, PC1 and PC2 appear to be related to current tree stress, with PC1 being highly correlated with current stem radius and basal area, while PC2 is negatively correlated with these factors. PC4 seems to be a good general indciator of tree growth, since it is positively correlated with change in stem radius and basal area, as well as humidity and soil water content, which may indicate that additional expansion comes from water absorption. 
+
+When we take these components and apply them to a Principal Component Regression (PCR) model, they appear to work very well. As our scree plot demonstrated, the first four components are particularly useful in explaining the change in basal area. Overall, PCA has proven to be a useful tool.
+                """
+            ),
+        ),
         # Add more ui cards here
     ) 
 )
