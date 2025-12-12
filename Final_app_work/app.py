@@ -19,7 +19,7 @@ import plotly.graph_objects as go
 from sklearn.cluster import KMeans
 
 
-df = pd.read_csv('categorized_data.csv')
+df = pd.read_csv('Final_app_work/categorized_data.csv')
 df['Date'] = pd.to_datetime(df['Date']) 
 
 min_date = df['Date'].min().date()
@@ -819,8 +819,22 @@ When we take these components and apply them to a Principal Component Regression
                 """
             ),
         ),
+
+        ui.card(
+            ui.card_header("Multiple Regression"),
+            ui.markdown(
+                """
+Our regression results support the well-established hydraulic mechanism where high VPD drives reversible trunk shrinkage and recovery with low VPD. Higher VPD increased daily stem amplitude, while greater soil moisture buffered this effect, consistent with Devine & Harrington (2011).
+
+Our results show that Arctic tree stem dynamics respond strongly to VPD and soil water, not just temperature, supporting Jensen’s argument that moisture-related stress is a key but overlooked driver of Arctic tree physiology under climate change.
+
+This is particularly compelling as several studies have found a strong relationship between shrinkage (TWD )and hydraulic stress ($\psi$) persisting across all drought conditions until lethal dehydration such as in (Ziegler et al., 2024)/ That is, large TWD (shrinkage) amplitudes are strongly linked to high hydraulic stress ($\psi$ approaching lethal levels) because large TWD means living tissues have lost a lot of water (low turgor) to supply transpiration, signaling water stress.
+
+                """
+        ),
         # Add more ui cards here
-    ) 
+    ),
+)
 )
 
 
