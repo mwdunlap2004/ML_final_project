@@ -19,7 +19,7 @@ import plotly.graph_objects as go
 from sklearn.cluster import KMeans
 
 
-df = pd.read_csv('Final_app_work/categorized_data.csv')
+df = pd.read_csv('categorized_data.csv')
 df['Date'] = pd.to_datetime(df['Date']) 
 
 min_date = df['Date'].min().date()
