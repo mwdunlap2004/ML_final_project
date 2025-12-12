@@ -825,12 +825,24 @@ Our regression results support the well-established hydraulic mechanism where hi
 
 Our results show that Arctic tree stem dynamics respond strongly to VPD and soil water, not just temperature, supporting Jensen’s argument that moisture-related stress is a key but overlooked driver of Arctic tree physiology under climate change.
 
-This is particularly compelling as several studies have found a strong relationship between shrinkage (TWD )and hydraulic stress ($\psi$) persisting across all drought conditions until lethal dehydration such as in (Ziegler et al., 2024)/ That is, large TWD (shrinkage) amplitudes are strongly linked to high hydraulic stress ($\psi$ approaching lethal levels) because large TWD means living tissues have lost a lot of water (low turgor) to supply transpiration, signaling water stress.
+This is particularly compelling as several studies have found a strong relationship between shrinkage (TWD )and hydraulic stress ($psi$) persisting across all drought conditions until lethal dehydration such as in (Ziegler et al., 2024)/ That is, large TWD (shrinkage) amplitudes are strongly linked to high hydraulic stress ($psi$ approaching lethal levels) because large TWD means living tissues have lost a lot of water (low turgor) to supply transpiration, signaling water stress.
 
                 """
+            ),
+            # Add more ui cards here
         ),
-        # Add more ui cards here
-    ),
+
+        ui.card(
+            ui.card_header("KNN Classification"),
+            ui.markdown(
+                """
+To approach the question of predicting **Basal Area Daily Amplitude** from a set of environmental factors, we applied a K-Nearest Neighbors (KNN) classifier. Our model achieved an accuracy of **66%**, outperforming the random baseline (33%) by a factor of 2. The model had good predictive performance across all 3 categories, with a "Moderate Change" preforming the worst yet still having a precision of 57.7% and a recall of 52.2%.
+
+This was found using the following features: *Air Pressure*, *Humidity*, *Temperature*, *Solar Radiation*, *Soil Moisture*, *Stem Radius*, and *Species*. The addition of variables measuring time of year (month), site location, latitude, and longitude (among others) did not improve performance. Thus, a fairly accurate predictive model can be built using only environmental features while effectively controlling in part for species in tree size. While this model cannot show exactly how influential each variable is, it does provide a useful baseline for further analysis and shows evidence that tree daily amplitude is strongly influenced by environmental factors.
+                """
+            ),
+            # Add more ui cards here
+        ),
     
         ui.card(
             ui.card_header("K-Means Clustering"),
@@ -1992,7 +2004,32 @@ def server(input, output, session):
         # Get the dropdown selection
         knn_scatter_color_by = input.knn_scatter_color_by()  # 'target', 'pred', 'correct'
 
-        df_plot = res['df_plot']
+        y_test = res['y_test'].copy()
+        y_pred = res['y_pred'].copy()
+        pca_real = pca_results()['alldata_w_pcs'][['PC1', 'PC2']].copy()
+
+        df_plot_old = res['df_plot']
+        
+        y_test_2 = y_test.copy().reset_index()
+        y_pred_2 = pd.DataFrame(y_pred, columns=['pred'])
+        y_combined = pd.concat([y_test_2, y_pred_2], axis=1)
+        y_combined.index = y_combined['index']
+        df_plot = pd.concat([pca_real, y_combined], axis=1, join='inner')
+        df_plot = df_plot.reset_index(drop=True)
+        df_plot.rename(columns={'growth_category': 'target'}, inplace=True)
+        df_plot = df_plot[['PC1', 'PC2', 'target', 'pred']]
+        df_plot["correct"] = df_plot["target"] == df_plot["pred"]
+        df_plot["correct"] = df_plot["correct"].map({True: "Correct", False: "Incorrect"})
+
+
+        # df_plot = pd.concat([pca_real, y_test], axis=1, join="inner")
+        # y_pred = pd.Series(y_pred['pred'], index=y_test.index, name="pred")
+        # y_pred = y_pred.loc[df_plot.index] 
+        # df_plot["y_pred"] = y_pred
+        # df_plot = df_plot.reset_index(drop=True)
+        # test = df_plot.isna().sum()
+
+
 
         # Create scatter plot
         fig = px.scatter(
@@ -2004,6 +2041,7 @@ def server(input, output, session):
             title="PCA Scatter Plot",
             opacity=0.65
         )
+
 
         # Update legend title nicely
         legend_title_map = {
