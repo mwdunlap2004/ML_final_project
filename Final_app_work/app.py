@@ -542,43 +542,18 @@ app_ui = ui.page_navbar(
                 ),
             ),
 
-            # Main panel
             ui.card(
                 ui.card_header("Elbow Plot (Within-Cluster Sum of Squares)"),
                 output_widget("kmeans_elbow_plot")
             ),
 
             ui.card(
-                ui.card_header("Cluster Diagnostics"),
-                ui.layout_columns(
-                    ui.card(
-                        ui.card_header("Silhouette & Cluster Sizes"),
-                        ui.output_text_verbatim(
-                            "kmeans_summary",
-                            placeholder="Click 'Run K-Means Model' to fit clustering."
-                        )
-                    ),
-                    ui.card(
-                        ui.card_header("Change in Basal Area by Cluster"),
-                        output_widget("kmeans_boxplot")
-                    ),
-                    col_widths=(4, 8)
-                )
-            ),
-
-            ui.card(
-                ui.card_header("Cluster Scatter Plot"),
-                output_widget("kmeans_scatter_plot")
-            ),
-
-            ui.card(
                 ui.card_header("Forests Interpretation (3 Clusters)"),
                 ui.tags.table({"class": "table table-sm"},
-        
+            
                 ui.tags.thead(
                     ui.tags.tr(
                         ui.tags.th("Forest"),
-                        ui.tags.th("Cluster ID"),
                         ui.tags.th("Temp"),
                         ui.tags.th("Humidity"),
                         ui.tags.th("Solar"),
@@ -589,11 +564,10 @@ app_ui = ui.page_navbar(
                         ui.tags.th("Amplitude")
                     )
                 ),
-                ui.tags.tbody(
-                    # forest 1
+                            ui.tags.tbody(
+                    # Forest 1
                     ui.tags.tr(
-                        ui.tags.td("Forest 1"),
-                        ui.tags.td("0"),
+                        ui.tags.td("1"),
                         ui.tags.td(
                             ui.input_text(
                                 "forest1_temp",
@@ -652,10 +626,9 @@ app_ui = ui.page_navbar(
                         )
                     ),
 
-                    # forest 2
+                    # Forest 2
                     ui.tags.tr(
-                        ui.tags.td("Forest 2"),
-                        ui.tags.td("1"),
+                        ui.tags.td("2"),
                         ui.tags.td(
                             ui.input_text(
                                 "forest2_temp",
@@ -714,10 +687,9 @@ app_ui = ui.page_navbar(
                         )
                     ),
 
-                    # forest 3
+                    # Forest 3
                     ui.tags.tr(
-                        ui.tags.td("Forest 3"),
-                        ui.tags.td("2"),
+                        ui.tags.td("3"),
                         ui.tags.td(
                             ui.input_text(
                                 "forest3_temp",
@@ -767,6 +739,7 @@ app_ui = ui.page_navbar(
                                 placeholder="Northwest Territories"
                             )
                         ),
+
                         ui.tags.td(
                             ui.input_text(
                                 "forest3_amplitude",
@@ -774,14 +747,38 @@ app_ui = ui.page_navbar(
                                 placeholder="Moderate"
                             )
                         )
+                    )
+                )
+            )
+            ),
+
+            ui.card(
+                ui.card_header("Cluster Diagnostics"),
+                ui.layout_columns(
+                    ui.card(
+                        ui.card_header("Silhouette & Cluster Sizes"),
+                        ui.output_text_verbatim(
+                            "kmeans_summary",
+                            placeholder="Click 'Run K-Means Model' to fit clustering."
+                        )
+                    ),
+                    ui.card(
+                        ui.card_header("Change in Basal Area by Cluster"),
+                        output_widget("kmeans_boxplot")
+                    ),
+                    col_widths=(4, 8)
+                )
+            ),
+
+            ui.card(
+                ui.card_header("Cluster Scatter Plot"),
+                output_widget("kmeans_scatter_plot")
             )
         )
-    )
-)
-
-
-        )
     ),
+    
+
+
     # Tab 7: Conclusions
     ui.nav_panel(
         "Conclusions",
@@ -836,6 +833,7 @@ This is particularly compelling as several studies have found a strong relations
     ),
 )
 )
+
 
 
 # --- Server Logic ---
