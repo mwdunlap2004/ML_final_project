@@ -831,6 +831,18 @@ This is particularly compelling as several studies have found a strong relations
         ),
         # Add more ui cards here
     ),
+    
+        ui.card(
+            ui.card_header("K-Means Clustering"),
+            ui.markdown(
+                """
+To observe how different environmental conditions group trees into distinct "forests," we applied K-Means clustering using both numeric and categorical variables. Based on the elbow plot and nearly identical silhouette scores for three and four clusters, we chose three clusters to keep the model interpretable while still capturing key structure in the data. 
+
+Forest 1 represents wetter, hotter, and sunnier sites with large changes in mean amplitude, whereas Forest 2 captures drier, colder, and shadier environments where mean amplitude is only moderate. Forest 3 is similar to Forest 1 but has higher humidity and air pressure that result in only moderate mean amplitude. This suggests that small shifts in climate variables can meaningfully change overall tree growth patterns.
+                """
+        ),
+        # Add more ui cards here
+    ),
 )
 )
 
