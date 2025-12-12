@@ -285,7 +285,7 @@ app_ui = ui.page_navbar(
                     ui.card_header("Understanding the Model"),
                     
                     ui.h5("Interactive Controls"),
-                    ui.p("Use the sidebar on the left to add or remove variables from the model. You can also toggle the graph to see predictors."),
+                    ui.p("Use the sidebar on the left to add or remove variables from the model. You can also toggle the graph to see predictors impacts on the model."),
 
                     ui.h5("What is Logistic Regression?"),
                     ui.p("Unlike linear regression, which predicts a number, Logistic Regression predicts the probability of an event happening (like a large basal area amplitude)."),
