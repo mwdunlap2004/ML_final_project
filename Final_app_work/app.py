@@ -316,7 +316,7 @@ app_ui = ui.page_navbar(
         ui.card(
             ui.markdown(
                 """
-                Principal Component Analysis (PCA) is a technique used to condense the feature space by creating new axes from the original features while preserving as much variation as possible. Each component captures a different pattern of variation in the data, with the first components explaining the most variance. Here, we use PCA to reduce our 8 numerical environmental and growth features we being with to a more manageable number while retaining as much information as we can. 
+                Principal Component Analysis (PCA) is a technique used to condense the feature space by creating new axes from the original features while preserving as much variation as possible. Each component captures a different pattern of variation in the data, with the first components explaining the most variance. Here, we use PCA to reduce our 8 numerical environmental and growth features to a more manageable number while retaining as much information as we can. 
                 """
             )
         ),
