@@ -773,7 +773,22 @@ app_ui = ui.page_navbar(
             ui.card(
                 ui.card_header("Cluster Scatter Plot"),
                 output_widget("kmeans_scatter_plot")
+            ),
+
+            ui.card(
+                ui.card_header("K-Means Cluster Visualizations"),
+                ui.layout_columns(
+                    ui.output_plot("kmeans_temp_humidity"),
+                    ui.output_plot("kmeans_solar_soil"),
+                    col_widths=(6, 6)
+                ),
+                ui.layout_columns(
+                    ui.output_plot("kmeans_pressure_humidity"),
+                    ui.output_plot("kmeans_temp_basal"),
+                    col_widths=(6, 6)
+                )
             )
+
         )
     ),
     
@@ -2151,8 +2166,7 @@ def server(input, output, session):
         fig.update_layout(template="plotly_white")
 
         return fig
-    
-        
+           
         
     @render.table
     def kmeans_forest_table():
@@ -2167,6 +2181,108 @@ def server(input, output, session):
             ]
         })
         return df_forest
+    
+    @render.plot
+    def kmeans_temp_humidity():
+        res = kmeans_results()
+        if not res:
+            return
+
+        df_clusters = res["df_clusters"].copy()
+        df_clusters["forest"] = df_clusters["cluster"] + 1
+
+        plt.figure(figsize=(6, 4))
+        sns.scatterplot(
+            data=df_clusters,
+            x="average_air_temperature",
+            y="average_humidity",
+            hue="forest"
+        )
+        plt.title("Temperature vs Humidity by Forest")
+        plt.xlabel("Average Air Temperature")
+        plt.ylabel("Average Humidity")
+        plt.legend(title="Forest")
+        plt.tight_layout()
+
+    @render.plot
+    def kmeans_solar_soil():
+        res = kmeans_results()
+        if not res:
+            return
+
+        df_clusters = res["df_clusters"].copy()
+        df_clusters["forest"] = df_clusters["cluster"] + 1
+
+        plt.figure(figsize=(6, 4))
+        sns.scatterplot(
+            data=df_clusters,
+            x="avg_solar_irradiance",
+            y="avg_soil_water_content",
+            hue="forest"
+        )
+        plt.title("Solar Irradiance vs Soil Water Content by Forest")
+        plt.xlabel("Average Solar Irradiance")
+        plt.ylabel("Average Soil Water Content")
+        plt.legend(title="Forest")
+        plt.tight_layout()
+
+    @render.plot
+    def kmeans_pressure_humidity():
+        res = kmeans_results()
+        if not res:
+            return
+
+        df_clusters = res["df_clusters"].copy()
+        df_clusters["forest"] = df_clusters["cluster"] + 1
+
+        plt.figure(figsize=(6, 4))
+        sns.scatterplot(
+            data=df_clusters,
+            x="average_air_pressure",
+            y="average_humidity",
+            hue="forest"
+        )
+        plt.title("Air Pressure vs Humidity by Forest")
+        plt.xlabel("Average Air Pressure")
+        plt.ylabel("Average Humidity")
+        plt.legend(title="Forest")
+        plt.tight_layout()
+
+    @render.plot
+    def kmeans_temp_basal():
+        res = kmeans_results()
+        if not res:
+            return
+
+        df_clusters = res["df_clusters"].copy()
+        df_clusters["forest"] = df_clusters["cluster"] + 1
+
+        plt.figure(figsize=(6, 4))
+        sns.scatterplot(
+            data=df_clusters,
+            x="average_air_temperature",
+            y="change_basal_area",
+            hue="forest"
+        )
+
+        overall_mean = df_clusters["change_basal_area"].mean()
+        plt.axhline(y=overall_mean, linestyle="--", color="black")
+        xmin, xmax = plt.xlim()
+        plt.text(
+            xmax,
+            overall_mean,
+            "Overall average",
+            ha="right",
+            va="bottom"
+        )
+
+        plt.ylim(0, 2)
+        plt.title("Change in Basal Area vs Temperature by Forest")
+        plt.xlabel("Average Air Temperature")
+        plt.ylabel("Change in Basal Area")
+        plt.legend(title="Forest")
+        plt.tight_layout()
+
 
 
 
