@@ -548,6 +548,20 @@ app_ui = ui.page_navbar(
             ),
 
             ui.card(
+                ui.card_header("Forests Visualizations"),
+                ui.layout_columns(
+                    ui.output_plot("kmeans_temp_humidity"),
+                    ui.output_plot("kmeans_solar_soil"),
+                    col_widths=(6, 6)
+                ),
+                ui.layout_columns(
+                    ui.output_plot("kmeans_pressure_humidity"),
+                    ui.output_plot("kmeans_temp_basal"),
+                    col_widths=(6, 6)
+                )
+            ),
+
+            ui.card(
                 ui.card_header("Forests Interpretation (3 Clusters)"),
                 ui.tags.table({"class": "table table-sm"},
             
@@ -768,27 +782,8 @@ app_ui = ui.page_navbar(
                     ),
                     col_widths=(4, 8)
                 )
-            ),
-
-            ui.card(
-                ui.card_header("Cluster Scatter Plot"),
-                output_widget("kmeans_scatter_plot")
-            ),
-
-            ui.card(
-                ui.card_header("K-Means Cluster Visualizations"),
-                ui.layout_columns(
-                    ui.output_plot("kmeans_temp_humidity"),
-                    ui.output_plot("kmeans_solar_soil"),
-                    col_widths=(6, 6)
-                ),
-                ui.layout_columns(
-                    ui.output_plot("kmeans_pressure_humidity"),
-                    ui.output_plot("kmeans_temp_basal"),
-                    col_widths=(6, 6)
-                )
             )
-
+            
         )
     ),
     
@@ -1305,81 +1300,6 @@ def server(input, output, session):
         
         plt.tight_layout()
         return fig
-    
-    # -- E. K-Means Logic --
-    @reactive.Calc
-    @reactive.event(input.run_kmeans)
-    def kmeans_results():
-        if df.empty:
-            return {}
-
-        num_cols = list(input.kmeans_model_num())
-        cat_cols = list(input.kmeans_model_cat())
-
-        existing_num = [c for c in num_cols if c in df.columns]
-        existing_cat = [c for c in cat_cols if c in df.columns]
-
-        if not existing_num and not existing_cat:
-            return {}
-
-        X = df[existing_num + existing_cat].dropna()
-        if X.empty:
-            return {}
-
-        preprocessor = ColumnTransformer(
-            transformers=[
-                ("num", StandardScaler(), existing_num),
-                ("cat", OneHotEncoder(handle_unknown="ignore"), existing_cat)
-            ]
-        )
-
-        pipe = Pipeline(
-            steps=[
-                ("preprocessor", preprocessor),
-                ("kmeans", KMeans(init="k-means++", n_init=10, random_state=6021))
-            ]
-        )
-
-        k_values = list(range(2, 11))
-        wcss = []
-
-        for k in k_values:
-            pipe.set_params(kmeans__n_clusters=k)
-            pipe.fit(X)
-            inertia = pipe["kmeans"].inertia_
-            wcss.append(inertia)
-
-        chosen_k = int(input.kmeans_k())
-        if chosen_k < min(k_values) or chosen_k > max(k_values):
-            chosen_k = 3  # safe fallback
-
-        pipe.set_params(kmeans__n_clusters=chosen_k)
-        pipe.fit(X)
-
-        labels = pipe["kmeans"].labels_
-
-        df_clusters = df.loc[X.index].copy()
-        df_clusters["cluster"] = labels
-
-        try:
-            X_transformed = pipe["preprocessor"].transform(X)
-            sil = float(silhouette_score(X_transformed, labels))
-        except Exception:
-            sil = None
-
-        cluster_sizes = df_clusters["cluster"].value_counts().sort_index()
-
-        return {
-            "chosen_k": chosen_k,
-            "wcss_k_values": k_values,
-            "wcss": wcss,
-            "silhouette": sil,
-            "cluster_sizes": cluster_sizes,
-            "df_clusters": df_clusters,
-            "numeric_cols": existing_num,
-            "categorical_cols": existing_cat,
-        }
-
 
     # -- Outputs: PCA --
     @render_widget
@@ -2131,42 +2051,6 @@ def server(input, output, session):
         )
 
         return fig
-
-    @render_widget
-    def kmeans_scatter_plot():
-        res = kmeans_results()
-        if not res:
-            return go.Figure()
-
-        df_clusters = res["df_clusters"]
-        num_cols = res["numeric_cols"]
-
-        # Need at least two numeric variables to make a 2D scatter
-        if len(num_cols) < 2:
-            return go.Figure()
-
-        x_col, y_col = num_cols[0], num_cols[1]
-
-        # Try to add nice hover fields if present
-        hover_cols = []
-        for col in ["species", "site", "plot", "change_basal_area"]:
-            if col in df_clusters.columns:
-                hover_cols.append(col)
-
-        fig = px.scatter(
-            df_clusters,
-            x=x_col,
-            y=y_col,
-            color="cluster",
-            hover_data=hover_cols if hover_cols else None,
-            title=f"K-Means Clusters (k={res['chosen_k']}) in {x_col} vs {y_col} space",
-            opacity=0.7
-        )
-
-        fig.update_layout(template="plotly_white")
-
-        return fig
-           
         
     @render.table
     def kmeans_forest_table():
@@ -2202,7 +2086,7 @@ def server(input, output, session):
         plt.xlabel("Average Air Temperature")
         plt.ylabel("Average Humidity")
         plt.legend(title="Forest")
-        plt.tight_layout()
+        plt.tight_layout(pad=2)
 
     @render.plot
     def kmeans_solar_soil():
@@ -2224,7 +2108,8 @@ def server(input, output, session):
         plt.xlabel("Average Solar Irradiance")
         plt.ylabel("Average Soil Water Content")
         plt.legend(title="Forest")
-        plt.tight_layout()
+        plt.tight_layout(pad=2)
+        
 
     @render.plot
     def kmeans_pressure_humidity():
@@ -2246,7 +2131,7 @@ def server(input, output, session):
         plt.xlabel("Average Air Pressure")
         plt.ylabel("Average Humidity")
         plt.legend(title="Forest")
-        plt.tight_layout()
+        plt.tight_layout(pad=2)
 
     @render.plot
     def kmeans_temp_basal():
@@ -2277,14 +2162,11 @@ def server(input, output, session):
         )
 
         plt.ylim(0, 2)
-        plt.title("Change in Basal Area vs Temperature by Forest")
+        plt.title("Temperature vs Amplitude by Forest")
         plt.xlabel("Average Air Temperature")
-        plt.ylabel("Change in Basal Area")
+        plt.ylabel("Amplitude")
         plt.legend(title="Forest")
-        plt.tight_layout()
-
-
-
+        plt.tight_layout(pad=2)
 
     
 app = App(app_ui, server)
