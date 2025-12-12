@@ -311,6 +311,16 @@ app_ui = ui.page_navbar(
         "PCA Analysis",
         # Section 1: Overview
         ui.h3("Overview", style="background-color: #f0f0f0; padding: 10px; margin-bottom: 20px; border-left: 5px solid #007bff;"),
+    
+        # ADD THIS NEW CARD HERE
+        ui.card(
+            ui.markdown(
+                """
+                Principal Component Analysis (PCA) is a technique used to condense the feature space by creating new axes from the original features while preserving as much variation as possible. Each component captures a different pattern of variation in the data, with the first components explaining the most variance. Here, we use PCA to reduce our 8 numerical environmental and growth features we being with to a more manageable number while retaining as much information as we can. 
+                """
+            )
+        ),
+    
         ui.layout_columns(
             ui.card(
                 ui.card_header("1. Feature Correlation Matrix"),
@@ -404,6 +414,13 @@ app_ui = ui.page_navbar(
 
         # Section 3: Principal Component Regression
         ui.h3("Principal Component Regression", style="background-color: #f0f0f0; padding: 10px; margin-top: 30px; margin-bottom: 20px; border-left: 5px solid #007bff;"),
+        ui.card(
+            ui.markdown(
+                """
+            Principal Component Regression (PCR) combines PCA with linear regression to predict tree growth outcomes. Instead of using the original features directly, PCR builds a regression model on our principal components. This can improve interpretability and potentially provide new insights. 
+            """
+            )
+        ),
         ui.layout_columns(
             ui.card(
                 ui.card_header("PCR Metrics"),
