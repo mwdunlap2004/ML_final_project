@@ -507,6 +507,21 @@ app_ui = ui.page_navbar(
     ui.nav_panel(
         "K-Means",
 
+        ui.layout_columns(
+            ui.card(
+                ui.card_header("K-Means Clustering"),
+                ui.p(
+                    """
+                    To understand how different environmental conditions grouped into different clusters -- or what we call **"forests"** --, we used a K-Means algorithm using both numeric and categorical variables.
+
+                    We settled on **three** forests after observing the elbow plot below. Both three and four forests, have very similiar silhouette scores and three is the best balance between structure and interpretation.
+                    """
+                )
+            ),
+            col_widths=(12,)
+        ),
+
+
         ui.layout_sidebar(
             ui.sidebar(
                 ui.h5("K-Means Configuration"),
@@ -546,6 +561,8 @@ app_ui = ui.page_navbar(
                 ui.card_header("Elbow Plot (Within-Cluster Sum of Squares)"),
                 output_widget("kmeans_elbow_plot")
             ),
+
+
 
             ui.card(
                 ui.card_header("Forests Visualizations"),
