@@ -153,7 +153,7 @@ app_ui = ui.page_navbar(
                 ui.hr(),
                 ui.input_selectize("filter_site", "Select Site(s):", choices=[], multiple=True),
                 ui.input_selectize("filter_species", "Select Species:", choices=[], multiple=True),
-                ui.input_selectize("filter_growth", "Growth Category:", choices=[], multiple=True),
+                ui.input_selectize("filter_growth", "Amplitude Category:", choices=[], multiple=True),
                 ui.p(ui.input_action_button("reset_filters", "Reset Filters", class_="btn-sm btn-outline-secondary"))
             ),
             ui.card(
